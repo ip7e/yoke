@@ -5,8 +5,10 @@ import SwiftUI
 final class YokePanel {
     static let shared = YokePanel()
     private var panel: NSPanel?
+    private(set) var isVisible = false
+    private var pollTimer: Timer?
 
-    func show(content: some View) {
+    func prepare(content: some View) {
         let hosting = NSHostingView(rootView: content)
         hosting.setFrameSize(hosting.fittingSize)
 
@@ -25,19 +27,45 @@ final class YokePanel {
         p.backgroundColor = .clear
         p.hasShadow = false
         p.contentView = hosting
-
-        if let screen = NSScreen.main {
-            let screenFrame = screen.visibleFrame
-            let x = screenFrame.midX - hosting.fittingSize.width / 2
-            let y = screenFrame.minY + 40
-            p.setFrameOrigin(NSPoint(x: x, y: y))
-        }
-
-        p.orderFrontRegardless()
         panel = p
     }
 
-    func updateBorder() {
+    func toggle() {
+        if isVisible { hide() } else { show() }
+    }
+
+    func show() {
+        guard let panel, !isVisible else { return }
+        yokeLog("panel: show")
+        isVisible = true
+
+        if let screen = NSScreen.main {
+            let screenFrame = screen.visibleFrame
+            let size = panel.frame.size
+            let x = screenFrame.midX - size.width / 2
+            let y = screenFrame.minY + 40
+            panel.setFrameOrigin(NSPoint(x: x, y: y))
+        }
+
+        panel.orderFrontRegardless()
+        WorkspaceMap.shared.refreshAll()
         showFocusBorder()
+
+        pollTimer = Timer.scheduledTimer(withTimeInterval: 0.5, repeats: true) { _ in
+            Task { @MainActor in
+                WorkspaceMap.shared.refreshAll()
+                showFocusBorder()
+            }
+        }
+    }
+
+    func hide() {
+        guard isVisible else { return }
+        yokeLog("panel: hide")
+        isVisible = false
+        panel?.orderOut(nil)
+        removeFocusBorder()
+        pollTimer?.invalidate()
+        pollTimer = nil
     }
 }

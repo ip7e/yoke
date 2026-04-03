@@ -40,6 +40,7 @@ extension HotKey {
                         _ = try await config.modes[activeMode]?.bindings[binding.descriptionWithKeyCode]?.commands
                             .runCmdSeq(.defaultEnv, .emptyStdin)
                     }
+                    yokeAfterBinding(binding.descriptionWithKeyNotation)
                 }
             }
         })

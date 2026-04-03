@@ -1,45 +1,178 @@
 import AppKit
 import Common
+import HotKey
 import SwiftUI
 
 // MARK: - Active skin
 
-@MainActor let activeSkin: any YokeSkin = TESkin()
+nonisolated(unsafe) let activeSkin: any YokeSkin = TESkin()
 
 // MARK: - Public entry point
 
 @MainActor
 public func initYoke() {
+    yokeLog("initYoke: starting")
     let content = activeSkin.makeView(keys: KeyState.shared)
-    YokePanel.shared.show(content: content)
-    WorkspaceMap.shared.refreshAll()
-    installYokeEventTap()
+    YokePanel.shared.prepare(content: content)
+    injectYokeBindings()
+    yokeLog("initYoke: done, yoke mode has \(config.modes["yoke"]?.bindings.count ?? 0) bindings")
+}
 
-    // Poll for state changes (backup — events will be primary later)
-    Timer.scheduledTimer(withTimeInterval: 0.5, repeats: true) { _ in
-        Task { @MainActor in
-            WorkspaceMap.shared.refreshAll()
-            YokePanel.shared.updateBorder()
-        }
+func yokeLog(_ msg: String) {
+    let line = "[YOKE] \(msg)\n"
+    if let data = line.data(using: .utf8) {
+        let logFile = FileHandle(forWritingAtPath: "/tmp/yoke.log") ?? {
+            FileManager.default.createFile(atPath: "/tmp/yoke.log", contents: nil)
+            return FileHandle(forWritingAtPath: "/tmp/yoke.log")!
+        }()
+        logFile.seekToEndOfFile()
+        logFile.write(data)
+        logFile.closeFile()
     }
 }
 
-// MARK: - Execute aerospace command directly (no CLI, no socket)
+// MARK: - Re-inject after config reload
 
 @MainActor
-func yokeExec(_ cmdString: String) {
+public func yokeOnConfigReloaded() {
+    yokeLog("config reloaded — re-injecting yoke bindings")
+    injectYokeBindingsIntoConfig()
+}
+
+// MARK: - Inject Yoke key bindings into AeroSpace's mode system
+
+@MainActor
+func injectYokeBindings() {
+    injectYokeBindingsIntoConfig()
+
+    // Activate mode to register hotkeys (initAppBundle already activated main mode,
+    // but our bindings weren't there yet)
     Task { @MainActor in
-        let parsed = parseCommand(cmdString)
-        if case .cmd(let command) = parsed {
-            _ = try? await [command].runCmdSeq(.defaultEnv, .emptyStdin)
-            updateTrayText()
-            WorkspaceMap.shared.refreshAll()
-            YokePanel.shared.updateBorder()
-        }
+        try? await activateMode(activeMode)
+        yokeLog("activated mode after injection: \(activeMode ?? "nil")")
     }
 }
 
-// MARK: - Focus border around active window
+@MainActor
+func injectYokeBindingsIntoConfig() {
+    // cmd-esc in main mode → enter yoke mode + show HUD
+    addBinding(toMode: mainModeId, key: .escape, modifiers: .command, commands: "mode yoke") {
+        yokeLog("cmd-esc triggered! showing yoke")
+        YokePanel.shared.show()
+    }
+
+    // Yoke mode bindings
+    func yoke(_ key: Key, _ mods: NSEvent.ModifierFlags = [], cmd: String, label: String) {
+        addBinding(toMode: "yoke", key: key, modifiers: mods, commands: cmd) {
+            if KeyState.shared.helpPage > 0 { KeyState.shared.helpPage = 0 }
+            KeyState.shared.press(label)
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
+                KeyState.shared.release(label)
+            }
+            WorkspaceMap.shared.refreshAll()
+            showFocusBorder()
+        }
+    }
+
+    func yokeExit(_ key: Key) {
+        addBinding(toMode: "yoke", key: key, modifiers: [], commands: "mode main") {
+            YokePanel.shared.hide()
+        }
+    }
+
+    // Exit
+    yokeExit(.escape)
+    yokeExit(.return)
+
+    // Focus
+    yoke(.w, cmd: "focus up", label: "W")
+    yoke(.a, cmd: "focus left", label: "A")
+    yoke(.s, cmd: "focus down", label: "S")
+    yoke(.d, cmd: "focus right", label: "D")
+
+    // Move
+    yoke(.w, .option, cmd: "move up", label: "⌥W")
+    yoke(.a, .option, cmd: "move left", label: "⌥A")
+    yoke(.s, .option, cmd: "move down", label: "⌥S")
+    yoke(.d, .option, cmd: "move right", label: "⌥D")
+
+    // Resize
+    yoke(.q, cmd: "resize smart -150", label: "Q")
+    yoke(.e, cmd: "resize smart +150", label: "E")
+    yoke(.q, .shift, cmd: "resize smart -50", label: "⇧Q")
+    yoke(.e, .shift, cmd: "resize smart +50", label: "⇧E")
+
+    // Layout
+    yoke(.t, cmd: "layout tiles horizontal vertical", label: "T")
+    yoke(.y, cmd: "layout accordion horizontal vertical", label: "Y")
+    yoke(.f, cmd: "layout floating tiling", label: "F")
+
+    // Merge
+    yoke(.w, .shift, cmd: "join-with up", label: "⇧W")
+    yoke(.a, .shift, cmd: "join-with left", label: "⇧A")
+    yoke(.s, .shift, cmd: "join-with down", label: "⇧S")
+    yoke(.d, .shift, cmd: "join-with right", label: "⇧D")
+
+    // Workspaces
+    let numKeys: [Key] = [.one, .two, .three, .four, .five, .six, .seven, .eight, .nine]
+    for (i, key) in numKeys.enumerated() {
+        let n = i + 1
+        yoke(key, cmd: "workspace \(n)", label: "\(n)")
+        yoke(key, .option, cmd: "move-node-to-workspace \(n)", label: "⌥\(n)")
+        yoke(key, .shift, cmd: "move-node-to-workspace \(n)", label: "⇧\(n)")
+    }
+
+    // Help (no aerospace command, just UI)
+    addBinding(toMode: "yoke", key: .h, modifiers: [], commands: nil) {
+        let next = KeyState.shared.helpPage + 1
+        KeyState.shared.helpPage = next > 5 ? 0 : next
+        KeyState.shared.press("?")
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
+            KeyState.shared.release("?")
+        }
+    }
+
+    yokeLog("injected \(config.modes["yoke"]?.bindings.count ?? 0) yoke bindings, main has \(config.modes[mainModeId]?.bindings.count ?? 0)")
+}
+
+// MARK: - Helper: add a binding to a mode
+
+@MainActor
+func addBinding(toMode mode: String, key: Key, modifiers: NSEvent.ModifierFlags, commands cmdStr: String?, afterAction: @escaping @MainActor () -> Void) {
+    // Parse the aerospace command(s) if any
+    var cmds: [any Command] = []
+    if let cmdStr {
+        for part in cmdStr.split(separator: ";").map(String.init) {
+            if case .cmd(let c) = parseCommand(part.trimmingCharacters(in: .whitespaces)) {
+                cmds.append(c)
+            }
+        }
+    }
+
+    let keyNotation = (modifiers.isEmpty ? "" : modifiers.toString() + "-") + key.toString()
+    let binding = HotkeyBinding(modifiers, key, cmds, descriptionWithKeyNotation: keyNotation)
+
+    // Store the after-action
+    yokeAfterActions[keyNotation] = afterAction
+
+    config.modes[mode, default: .zero].bindings[binding.descriptionWithKeyCode] = binding
+}
+
+// Store after-action closures keyed by notation
+@MainActor var yokeAfterActions: [String: @MainActor () -> Void] = [:]
+
+// MARK: - Hook into AeroSpace's hotkey system to run after-actions
+// This is called after each binding fires via the mode system
+
+@MainActor
+public func yokeAfterBinding(_ binding: String) {
+    yokeLog("afterBinding: \(binding)")
+    if let action = yokeAfterActions[binding] {
+        action()
+    }
+}
+
+// MARK: - Focus border
 
 @MainActor var borderWindow: NSWindow?
 
@@ -49,7 +182,6 @@ func focusedWindowFrame() -> NSRect? {
           let rect = window.lastAppliedLayoutPhysicalRect else {
         return nil
     }
-    // Convert from top-left origin to AppKit bottom-left origin
     guard let mainScreen = NSScreen.screens.first else { return nil }
     let screenHeight = mainScreen.frame.height
     let flippedY = screenHeight - CGFloat(rect.topLeftY) - CGFloat(rect.height)
@@ -116,190 +248,4 @@ func showFocusBorder() {
 func removeFocusBorder() {
     borderWindow?.orderOut(nil)
     borderWindow = nil
-}
-
-// MARK: - Key bindings
-
-struct YokeBinding {
-    let command: String
-    let label: String
-}
-
-struct KeyCombo: Hashable {
-    let keyCode: UInt16
-    let shift: Bool
-    let alt: Bool
-
-    init(_ keyCode: UInt16, shift: Bool = false, alt: Bool = false) {
-        self.keyCode = keyCode
-        self.shift = shift
-        self.alt = alt
-    }
-}
-
-// Key codes
-let kW: UInt16 = 13, kA: UInt16 = 0, kS: UInt16 = 1, kD: UInt16 = 2
-let kQ: UInt16 = 12, kE: UInt16 = 14
-let kT: UInt16 = 17, kY: UInt16 = 16, kF: UInt16 = 3
-let kH: UInt16 = 4
-let kEsc: UInt16 = 53, kEnter: UInt16 = 36
-let k1: UInt16 = 18, k2: UInt16 = 19, k3: UInt16 = 20
-let k4: UInt16 = 21, k5: UInt16 = 23, k6: UInt16 = 22
-let k7: UInt16 = 26, k8: UInt16 = 28, k9: UInt16 = 25
-
-let yokeBindings: [KeyCombo: YokeBinding] = [
-    // Focus
-    KeyCombo(kW):                    YokeBinding(command: "focus up", label: "W"),
-    KeyCombo(kA):                    YokeBinding(command: "focus left", label: "A"),
-    KeyCombo(kS):                    YokeBinding(command: "focus down", label: "S"),
-    KeyCombo(kD):                    YokeBinding(command: "focus right", label: "D"),
-    // Move
-    KeyCombo(kW, alt: true):         YokeBinding(command: "move up", label: "⌥W"),
-    KeyCombo(kA, alt: true):         YokeBinding(command: "move left", label: "⌥A"),
-    KeyCombo(kS, alt: true):         YokeBinding(command: "move down", label: "⌥S"),
-    KeyCombo(kD, alt: true):         YokeBinding(command: "move right", label: "⌥D"),
-    // Resize
-    KeyCombo(kQ):                    YokeBinding(command: "resize smart -150", label: "Q"),
-    KeyCombo(kE):                    YokeBinding(command: "resize smart +150", label: "E"),
-    KeyCombo(kQ, shift: true):       YokeBinding(command: "resize smart -50", label: "⇧Q"),
-    KeyCombo(kE, shift: true):       YokeBinding(command: "resize smart +50", label: "⇧E"),
-    // Layout
-    KeyCombo(kT):                    YokeBinding(command: "layout tiles horizontal vertical", label: "T"),
-    KeyCombo(kY):                    YokeBinding(command: "layout accordion horizontal vertical", label: "Y"),
-    KeyCombo(kF):                    YokeBinding(command: "layout floating tiling", label: "F"),
-    // Merge
-    KeyCombo(kW, shift: true):       YokeBinding(command: "join-with up", label: "⇧W"),
-    KeyCombo(kA, shift: true):       YokeBinding(command: "join-with left", label: "⇧A"),
-    KeyCombo(kS, shift: true):       YokeBinding(command: "join-with down", label: "⇧S"),
-    KeyCombo(kD, shift: true):       YokeBinding(command: "join-with right", label: "⇧D"),
-    // Workspaces
-    KeyCombo(k1):                    YokeBinding(command: "workspace 1", label: "1"),
-    KeyCombo(k2):                    YokeBinding(command: "workspace 2", label: "2"),
-    KeyCombo(k3):                    YokeBinding(command: "workspace 3", label: "3"),
-    KeyCombo(k4):                    YokeBinding(command: "workspace 4", label: "4"),
-    KeyCombo(k5):                    YokeBinding(command: "workspace 5", label: "5"),
-    KeyCombo(k6):                    YokeBinding(command: "workspace 6", label: "6"),
-    KeyCombo(k7):                    YokeBinding(command: "workspace 7", label: "7"),
-    KeyCombo(k8):                    YokeBinding(command: "workspace 8", label: "8"),
-    KeyCombo(k9):                    YokeBinding(command: "workspace 9", label: "9"),
-    // Move to workspace
-    KeyCombo(k1, alt: true):         YokeBinding(command: "move-node-to-workspace 1", label: "⌥1"),
-    KeyCombo(k2, alt: true):         YokeBinding(command: "move-node-to-workspace 2", label: "⌥2"),
-    KeyCombo(k3, alt: true):         YokeBinding(command: "move-node-to-workspace 3", label: "⌥3"),
-    KeyCombo(k4, alt: true):         YokeBinding(command: "move-node-to-workspace 4", label: "⌥4"),
-    KeyCombo(k5, alt: true):         YokeBinding(command: "move-node-to-workspace 5", label: "⌥5"),
-    KeyCombo(k6, alt: true):         YokeBinding(command: "move-node-to-workspace 6", label: "⌥6"),
-    KeyCombo(k7, alt: true):         YokeBinding(command: "move-node-to-workspace 7", label: "⌥7"),
-    KeyCombo(k8, alt: true):         YokeBinding(command: "move-node-to-workspace 8", label: "⌥8"),
-    KeyCombo(k9, alt: true):         YokeBinding(command: "move-node-to-workspace 9", label: "⌥9"),
-    KeyCombo(k1, shift: true):       YokeBinding(command: "move-node-to-workspace 1", label: "⇧1"),
-    KeyCombo(k2, shift: true):       YokeBinding(command: "move-node-to-workspace 2", label: "⇧2"),
-    KeyCombo(k3, shift: true):       YokeBinding(command: "move-node-to-workspace 3", label: "⇧3"),
-    KeyCombo(k4, shift: true):       YokeBinding(command: "move-node-to-workspace 4", label: "⇧4"),
-    KeyCombo(k5, shift: true):       YokeBinding(command: "move-node-to-workspace 5", label: "⇧5"),
-    KeyCombo(k6, shift: true):       YokeBinding(command: "move-node-to-workspace 6", label: "⇧6"),
-    KeyCombo(k7, shift: true):       YokeBinding(command: "move-node-to-workspace 7", label: "⇧7"),
-    KeyCombo(k8, shift: true):       YokeBinding(command: "move-node-to-workspace 8", label: "⇧8"),
-    KeyCombo(k9, shift: true):       YokeBinding(command: "move-node-to-workspace 9", label: "⇧9"),
-]
-
-// MARK: - Key handling
-
-@MainActor
-func yokeHandleKeyDown(_ keyCode: UInt16, flags: CGEventFlags) -> Bool {
-    // Help pages
-    if keyCode == kH {
-        let next = KeyState.shared.helpPage + 1
-        KeyState.shared.helpPage = next > 5 ? 0 : next
-        KeyState.shared.press("?")
-        return true
-    }
-
-    let shift = flags.contains(.maskShift)
-    let alt = flags.contains(.maskAlternate)
-    let combo = KeyCombo(keyCode, shift: shift, alt: alt)
-
-    guard let binding = yokeBindings[combo] else {
-        // Block unregistered keys, flash error
-        KeyState.shared.errorFlash = true
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-            KeyState.shared.errorFlash = false
-        }
-        return true
-    }
-
-    // Dismiss help on any other key
-    if KeyState.shared.helpPage > 0 { KeyState.shared.helpPage = 0 }
-    KeyState.shared.press(binding.label)
-
-    // Execute command directly
-    yokeExec(binding.command)
-
-    return true
-}
-
-@MainActor
-func yokeHandleKeyUp(_ keyCode: UInt16, flags: CGEventFlags) -> Bool {
-    if keyCode == kH {
-        KeyState.shared.release("?")
-        return true
-    }
-
-    let shift = flags.contains(.maskShift)
-    let alt = flags.contains(.maskAlternate)
-    let combo = KeyCombo(keyCode, shift: shift, alt: alt)
-
-    guard let binding = yokeBindings[combo] else {
-        return true
-    }
-
-    KeyState.shared.release(binding.label)
-    return true
-}
-
-// MARK: - CGEvent tap
-
-func installYokeEventTap() {
-    let eventMask: CGEventMask = (1 << CGEventType.keyDown.rawValue) | (1 << CGEventType.keyUp.rawValue) | (1 << CGEventType.flagsChanged.rawValue)
-
-    guard let tap = CGEvent.tapCreate(
-        tap: .cgSessionEventTap,
-        place: .headInsertEventTap,
-        options: .defaultTap,
-        eventsOfInterest: eventMask,
-        callback: { _, type, event, _ -> Unmanaged<CGEvent>? in
-            let keyCode = UInt16(event.getIntegerValueField(.keyboardEventKeycode))
-            let flags = event.flags
-
-            if type == .flagsChanged {
-                Task { @MainActor in
-                    KeyState.shared.updateModifiers(flags)
-                }
-                return Unmanaged.passUnretained(event)
-            }
-
-            if type == .keyDown {
-                var handled = false
-                // Must dispatch to main for @MainActor access
-                DispatchQueue.main.sync {
-                    handled = yokeHandleKeyDown(keyCode, flags: flags)
-                }
-                if handled { return nil }
-            } else if type == .keyUp {
-                var handled = false
-                DispatchQueue.main.sync {
-                    handled = yokeHandleKeyUp(keyCode, flags: flags)
-                }
-                if handled { return nil }
-            }
-            return Unmanaged.passUnretained(event)
-        },
-        userInfo: nil
-    ) else {
-        return
-    }
-
-    let runLoopSource = CFMachPortCreateRunLoopSource(kCFAllocatorDefault, tap, 0)
-    CFRunLoopAddSource(CFRunLoopGetCurrent(), runLoopSource, .commonModes)
-    CGEvent.tapEnable(tap: tap, enable: true)
 }

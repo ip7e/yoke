@@ -1,5 +1,5 @@
 # makefile is used to make :make command in vim work out of the box
-.PHONY: build test format swift-test
+.PHONY: build test format swift-test yoke
 
 build:
 	./build-debug.sh
@@ -15,3 +15,7 @@ format:
 
 lint:
 	./lint.sh
+
+yoke:
+	pkill -x AeroSpace 2>/dev/null; pkill -f YokeApp 2>/dev/null; sleep 0.3
+	swift run YokeApp
