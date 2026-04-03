@@ -1,5 +1,17 @@
 import SwiftUI
 
+// MARK: - Hover helper
+
+struct HoverView<Content: View>: View {
+    @State private var hovered = false
+    let content: (Bool) -> Content
+
+    var body: some View {
+        content(hovered)
+            .onHover { hovered = $0 }
+    }
+}
+
 // MARK: - Teenage Engineering Skin (OP-1 Field)
 
 struct TESkin: YokeSkin {
@@ -156,14 +168,16 @@ private struct TEView: View {
                 screenModule()
                     .frame(width: u3, height: u2)
 
-                btnPanel("−", shortcut: "Q", label: "Q")
-                btnPanel("+", shortcut: "E", label: "E")
+                VStack(spacing: gap) {
+                    btnSquare("+", shortcut: "E", label: "E", modifierLit: keys.shiftHeld)
+                    btnSquare("−", shortcut: "Q", label: "Q", modifierLit: keys.shiftHeld)
+                }
+                .frame(width: u1)
 
-                btnPanel("⧉", shortcut: "T", label: "T")
-                btnPanel("≡", shortcut: "Y", label: "Y")
-                btnPanel("⬡", shortcut: "F", label: "F")
+                btnPanel("⬡", shortcut: "F", label: "FLOAT")
+                btnPanel("⧉", shortcut: "R", label: "LYOUT", modifierLit: keys.shiftHeld)
 
-                btnPanel("?", shortcut: "?", label: "H")
+                btnPanel("?", shortcut: "H", label: "HELP")
             }
             // gap from shelf edge to modules = same as gap between modules
             .padding(6 + gap)
@@ -185,6 +199,41 @@ private struct TEView: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
         }
         .padding(.horizontal, 6)
+    }
+
+    func helpLineNarrow(_ key: String, _ desc: String) -> some View {
+        HStack(spacing: 5) {
+            Text(key)
+                .font(.system(size: 9, weight: .bold, design: .monospaced))
+                .foregroundColor(Color(red: 1, green: 0.42, blue: 0).opacity(0.85))
+                .frame(width: 28, alignment: .trailing)
+            Text(desc)
+                .font(.system(size: 8, weight: .medium, design: .monospaced))
+                .foregroundColor(.white.opacity(0.50))
+                .frame(maxWidth: .infinity, alignment: .leading)
+        }
+        .padding(.horizontal, 6)
+    }
+
+    /// OP-1 style: KEY  LABEL  hint
+    func helpOp1(_ key: String, _ label: String, _ hint: String) -> some View {
+        HStack(spacing: 0) {
+            Text(key)
+                .font(.system(size: 8, weight: .black, design: .monospaced))
+                .foregroundColor(.white.opacity(0.7))
+                .frame(width: 32, alignment: .trailing)
+            Text(" ")
+                .frame(width: 4)
+            Text(label)
+                .font(.system(size: 8, weight: .bold, design: .monospaced))
+                .foregroundColor(Color(red: 1, green: 0.42, blue: 0).opacity(0.9))
+                .frame(width: 40, alignment: .leading)
+            Text(hint)
+                .font(.system(size: 6, weight: .medium, design: .monospaced))
+                .foregroundColor(.white.opacity(0.25))
+                .frame(maxWidth: .infinity, alignment: .leading)
+        }
+        .padding(.horizontal, 4)
     }
 
     // MARK: - Panel base (Figma: #F6F3F2, rounded 5, inset shadows)
@@ -361,27 +410,42 @@ private struct TEView: View {
 
                     Group {
                         if keys.helpPage == 1 {
+                            // Navigate
                             VStack(spacing: 3) {
-                                helpLine("WASD", "focus")
-                                helpLine("⌥ WASD", "move")
-                                helpLine("⇧ WASD", "merge")
+                                helpLine("WASD", "FOCUS")
+                                helpLine("⌥ WASD", "MOVE")
+                                helpLine("⇧ WASD", "MERGE")
                             }
                         } else if keys.helpPage == 2 {
-                            VStack(spacing: 3) {
-                                helpLine("T", "tiles")
-                                helpLine("Y", "accordion")
-                                helpLine("F", "float")
+                            // Workspace
+                            VStack(spacing: 2) {
+                                helpLine("1-9", "WORKSPACE")
+                                helpLine("⌥ 1-9", "SEND TO")
+                                Text("WORKSPACE")
+                                    .font(.system(size: 8, weight: .medium, design: .monospaced))
+                                    .foregroundColor(.white.opacity(0.50))
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+                                    .padding(.leading, 60)
                             }
                         } else if keys.helpPage == 3 {
+                            // Resize
                             VStack(spacing: 3) {
-                                helpLine("Q / E", "resize")
-                                helpLine("⇧Q / ⇧E", "fine resize")
+                                helpLine("E/Q", "RESIZE")
+                                helpLine("⇧ E/Q", "FINE RESIZE")
                             }
                         } else if keys.helpPage == 4 {
+                            // Layout
                             VStack(spacing: 3) {
-                                helpLine("ESC / ↵", "exit")
-                                helpLine("⌘ ESC", "enter yoke")
-                                helpLine("H", "help")
+                                helpLineNarrow("F", "FLOAT ON/OFF")
+                                helpLineNarrow("R", "TILE / STACK")
+                                helpLineNarrow("⇧ R", "ORIENTATION")
+                            }
+                        } else if keys.helpPage == 5 {
+                            // Meta
+                            VStack(spacing: 3) {
+                                helpLine("⌘ ESC", "OPEN YOKE")
+                                helpLine("ESC ↵", "CLOSE YOKE")
+                                helpLine("H", "HELP")
                             }
                         } else {
                             VStack(spacing: 4) {
@@ -476,11 +540,17 @@ private struct TEView: View {
                             let modeCol: Color = keys.altHeld ? .green : Color(red: 1, green: 0.42, blue: 0)
                             let color = inMode
                                 ? (win.isFocused ? modeCol : Color.white)
-                                : palette[i % palette.count]
+                                : palette[Int(win.windowId) % palette.count]
 
                             // Windows
                             ctx.fill(Path(roundedRect: rect, cornerSize: cr), with: .color(color.opacity(win.isFocused ? 0.30 : (inMode ? 0.06 : 0.12))))
-                            ctx.stroke(Path(roundedRect: rect, cornerSize: cr), with: .color(color.opacity(win.isFocused ? 0.9 : (inMode ? 0.15 : 0.35))), lineWidth: win.isFocused ? 1.2 : 0.5)
+                            if win.isFloating {
+                                let dash: [CGFloat] = [3, 2]
+                                var dashedPath = Path(roundedRect: rect, cornerSize: cr)
+                                ctx.stroke(dashedPath, with: .color(color.opacity(win.isFocused ? 0.9 : (inMode ? 0.15 : 0.35))), style: StrokeStyle(lineWidth: win.isFocused ? 1.2 : 0.5, dash: dash))
+                            } else {
+                                ctx.stroke(Path(roundedRect: rect, cornerSize: cr), with: .color(color.opacity(win.isFocused ? 0.9 : (inMode ? 0.15 : 0.35))), lineWidth: win.isFocused ? 1.2 : 0.5)
+                            }
 
                             if win.isFocused {
                                 let scanSpeed = inMode ? 20 : 60
@@ -505,6 +575,7 @@ private struct TEView: View {
                     let wsY = h - pad - 1.5
                     let wsSpacing: CGFloat = 11
                     let wsStart = w / 2 - wsSpacing * 4
+                    let modHeld = keys.altHeld
                     for i in 1...9 {
                         let label = "\(i)"
                         let isActive = workspace.activeWorkspace == label
@@ -516,6 +587,13 @@ private struct TEView: View {
                             ctx.draw(
                                 Text(label).font(.system(size: 7, weight: .black, design: .monospaced))
                                     .foregroundColor(Color(red: 0.20, green: 0.80, blue: 0.90)),
+                                at: CGPoint(x: x, y: wsY)
+                            )
+                        } else if modHeld {
+                            // Modifier held: orange — "you can move here"
+                            ctx.draw(
+                                Text(label).font(.system(size: 7, weight: .bold, design: .monospaced))
+                                    .foregroundColor(Color.green.opacity(0.7)),
                                 at: CGPoint(x: x, y: wsY)
                             )
                         } else if isOccupied {
@@ -556,12 +634,12 @@ private struct TEView: View {
 
     // MARK: - Button Panel (1×2 vertical — neumorphic dome in top, label in bottom)
 
-    func btnPanel(_ icon: String, shortcut: String, label: String) -> some View {
+    func btnPanel(_ icon: String, shortcut: String, label: String, modifierLit: Bool = false) -> some View {
         let domeSz: CGFloat = u1 * 0.75
-        let pressed = keys.pressedKey == shortcut
-        let lit = shortcut == "?" ? keys.helpPage > 0 : pressed
+        let pressed = keys.pressedKey == shortcut || keys.pressedKey == "⇧\(shortcut)"
+        let lit = shortcut == "H" ? keys.helpPage > 0 : (pressed || modifierLit)
 
-        return ZStack {
+        return HoverView { hovered in ZStack {
             // Module shadow (disappears when pushed)
             RoundedRectangle(cornerRadius: 4)
                 .fill(Color.black.opacity(pressed ? 0.0 : 0.10))
@@ -594,9 +672,14 @@ private struct TEView: View {
                             )
                             .frame(width: domeSz, height: domeSz)
 
-                        Text(icon)
-                            .font(.system(size: 12, weight: .regular))
-                            .foregroundColor(lit ? Color(red: 1.0, green: 0.42, blue: 0.0) : TE.icon)
+                        Text(hovered ? shortcut : icon)
+                            .font(.system(size: hovered ? 9 : 12, weight: hovered ? .bold : .regular, design: hovered ? .monospaced : .default))
+                            .foregroundColor(
+                                modifierLit && !pressed
+                                    ? Color(red: 1.0, green: 0.42, blue: 0.0)
+                                    : (lit ? Color(red: 1.0, green: 0.42, blue: 0.0) : TE.icon)
+                            )
+                            .animation(.easeInOut(duration: 0.1), value: hovered)
                     }
                     .frame(height: u1)
 
@@ -610,6 +693,61 @@ private struct TEView: View {
             .animation(.easeOut(duration: 0.05), value: pressed)
         }
         .frame(width: u1, height: u2)
+        }
+    }
+
+    // MARK: - Small square button (1×1 — dome + label combined)
+
+    func btnSquare(_ icon: String, shortcut: String, label: String, modifierLit: Bool = false) -> some View {
+        let domeSz: CGFloat = u1 * 0.75
+        let pressed = keys.pressedKey == shortcut || keys.pressedKey == "⇧\(shortcut)"
+        let lit = pressed || modifierLit
+
+        return HoverView { hovered in ZStack {
+            RoundedRectangle(cornerRadius: 4)
+                .fill(Color.black.opacity(pressed ? 0.0 : 0.10))
+                .offset(y: pressed ? 0 : 1)
+                .blur(radius: pressed ? 0 : 0.8)
+
+            ZStack {
+                panelBase()
+
+                ZStack {
+                    Circle()
+                        .fill(TE.panel)
+                        .frame(width: domeSz, height: domeSz)
+                        .shadow(color: Color.black.opacity(0.18), radius: 3, x: 1.5, y: 1.5)
+                        .shadow(color: Color.white.opacity(0.8), radius: 2, x: -1, y: -1)
+
+                    Circle()
+                        .stroke(
+                            LinearGradient(
+                                stops: [
+                                    .init(color: Color.white.opacity(0.6), location: 0.0),
+                                    .init(color: Color.clear, location: 0.4),
+                                    .init(color: Color.black.opacity(0.06), location: 0.8),
+                                ],
+                                startPoint: .topLeading, endPoint: .bottomTrailing
+                            ),
+                            lineWidth: 1
+                        )
+                        .frame(width: domeSz, height: domeSz)
+
+                    Text(hovered ? label : icon)
+                        .font(.system(size: hovered ? 9 : 12, weight: hovered ? .bold : .regular, design: hovered ? .monospaced : .default))
+                        .foregroundColor(
+                            modifierLit && !pressed
+                                ? Color(red: 1.0, green: 0.42, blue: 0.0)
+                                : (lit ? Color(red: 1.0, green: 0.42, blue: 0.0) : TE.icon)
+                        )
+                        .animation(.easeInOut(duration: 0.1), value: hovered)
+                }
+            }
+            .offset(y: pressed ? 1 : 0)
+            .animation(.easeOut(duration: 0.05), value: pressed)
+        }
+        .frame(width: u1, height: u1)
+        }
     }
 
 }

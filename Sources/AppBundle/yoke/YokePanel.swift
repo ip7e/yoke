@@ -7,6 +7,7 @@ final class YokePanel {
     private var panel: NSPanel?
     private(set) var isVisible = false
     private var pollTimer: Timer?
+    var blockTap: CFMachPort?
 
     func prepare(content: some View) {
         let hosting = NSHostingView(rootView: content)
@@ -18,7 +19,7 @@ final class YokePanel {
             backing: .buffered,
             defer: false
         )
-        p.level = .floating
+        p.level = NSWindow.Level(rawValue: NSWindow.Level.floating.rawValue + 3)
         p.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
         p.isReleasedWhenClosed = false
         p.hidesOnDeactivate = false
@@ -48,13 +49,13 @@ final class YokePanel {
         }
 
         panel.orderFrontRegardless()
-        WorkspaceMap.shared.refreshAll()
-        showFocusBorder()
+        yokePanelVisible = true
+        if let tap = blockTap { CGEvent.tapEnable(tap: tap, enable: true) }
+        yokeRefreshUI()
 
         pollTimer = Timer.scheduledTimer(withTimeInterval: 0.5, repeats: true) { _ in
             Task { @MainActor in
-                WorkspaceMap.shared.refreshAll()
-                showFocusBorder()
+                yokeRefreshUI()
             }
         }
     }
@@ -62,7 +63,10 @@ final class YokePanel {
     func hide() {
         guard isVisible else { return }
         yokeLog("panel: hide")
+        saveLayout()
         isVisible = false
+        yokePanelVisible = false
+        if let tap = blockTap { CGEvent.tapEnable(tap: tap, enable: false) }
         panel?.orderOut(nil)
         removeFocusBorder()
         pollTimer?.invalidate()

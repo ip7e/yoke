@@ -9,6 +9,7 @@ class KeyState: ObservableObject {
     @Published var shiftHeld: Bool = false
     @Published var helpPage: Int = 0
     @Published var errorFlash: Bool = false
+    @Published var focusedIsFloating: Bool = false
 
     func press(_ key: String) {
         pressedKey = key
