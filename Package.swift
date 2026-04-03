@@ -15,6 +15,8 @@ let package = Package(
         .executable(name: "AeroSpaceApp", targets: ["AeroSpaceApp"]),
         // We only need to expose this as a product for xcode
         .library(name: "AppBundle", targets: ["AppBundle"]),
+        // Yoke: embedded HUD overlay
+        .executable(name: "YokeApp", targets: ["YokeApp"]),
     ],
     dependencies: [
         .package(path: "./ShellParserGenerated"),
@@ -63,6 +65,12 @@ let package = Package(
             name: "Cli",
             dependencies: [
                 .target(name: "Common"),
+            ],
+        ),
+        .executableTarget(
+            name: "YokeApp",
+            dependencies: [
+                .target(name: "AppBundle"),
             ],
         ),
         .testTarget(
