@@ -5,12 +5,6 @@ import SwiftUI
 @MainActor
 public func menuBar(viewModel: TrayMenuModel) -> some Scene { // todo should it be converted to "SwiftUI struct"?
     MenuBarExtra {
-        let shortIdentification = "\(aeroSpaceAppName) v\(aeroSpaceAppVersion) \(gitShortHash)"
-        let identification      = "\(aeroSpaceAppName) v\(aeroSpaceAppVersion) \(gitHash)"
-        Text(shortIdentification)
-        Button("Copy to clipboard") { identification.copyToClipboard() }
-            .keyboardShortcut("C", modifiers: .command)
-        Divider()
         if let token: RunSessionGuard = .isServerEnabled {
             Text("Workspaces:")
             ForEach(viewModel.workspaces, id: \.name) { workspace in
@@ -26,26 +20,14 @@ public func menuBar(viewModel: TrayMenuModel) -> some Scene { // todo should it 
             }
             Divider()
         }
-        Button {
-            NSWorkspace.shared.open(URL(string: "https://github.com/sponsors/nikitabobko").orDie())
-            viewModel.sponsorshipMessage = sponsorshipPrompts.randomElement().orDie()
-        } label: {
-            Text("Sponsor AeroSpace on GitHub")
-            Text(viewModel.sponsorshipMessage)
+        Button("Restart Onboarding") {
+            OnboardingState.shared.reset()
+            OnboardingState.shared.startOnboarding()
+            YokeKeys.shared.deactivate()
+            YokePanel.shared.showPassive()
         }
         Divider()
-        Button(viewModel.isEnabled ? "Disable" : "Enable") {
-            Task {
-                try await runLightSession(.menuBarButton, .forceRun) { () throws in
-                    _ = try await EnableCommand(args: EnableCmdArgs(rawArgs: [], targetState: .toggle))
-                        .run(.defaultEnv, .emptyStdin)
-                }
-            }
-        }.keyboardShortcut("E", modifiers: .command)
-        getExperimentalUISettingsMenu(viewModel: viewModel)
-        openConfigButton()
-        reloadConfigButton()
-        Button("Quit \(aeroSpaceAppName)") {
+        Button("Quit") {
             Task {
                 defer { terminateApp() }
                 try await terminationHandler.beforeTermination()

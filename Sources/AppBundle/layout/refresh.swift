@@ -41,6 +41,11 @@ func runRefreshSessionBlocking(
             SecureInputPanel.shared.refresh()
             try await normalizeLayoutReason()
             if shouldLayoutWorkspaces { try await layoutWorkspaces() }
+
+            // Update yoke HUD if visible
+            if YokePanel.shared.isVisible {
+                yokeRefreshUI()
+            }
         }
     }
 }

@@ -12,53 +12,79 @@ nonisolated(unsafe) let activeSkin: any YokeSkin = TESkin()
 @MainActor
 public func initYoke() {
     yokeLog("initYoke: starting")
+    OnboardingState.shared.load()
+    if !OnboardingState.shared.isComplete {
+        OnboardingState.shared.startOnboarding()
+    }
     let content = activeSkin.makeView(keys: KeyState.shared)
     YokePanel.shared.prepare(content: content)
-    injectYokeBindings()
+
+    // Register yoke's own hotkeys (start paused, independent of aerospace's config)
+    YokeKeys.shared.setup()
 
     // Install the block tap (blocks unregistered keys when yoke is visible)
-    if let tap = installYokeBlockTap() {
+    if let (tap, source) = installYokeBlockTap() {
         YokePanel.shared.blockTap = tap
+        YokePanel.shared.blockTapSource = source
         yokeLog("block tap installed")
     }
 
-    // Restore saved layout after a delay (let aerospace discover windows first)
-    Task { @MainActor in
-        try? await Task.sleep(for: .seconds(2))
-        await restoreLayout()
+    // First launch: show panel passively (no yoke mode, no key blocking)
+    if !OnboardingState.shared.isComplete {
+        yokeLog("scheduling passive show via timer")
+        Timer.scheduledTimer(withTimeInterval: 2.5, repeats: false) { _ in
+            DispatchQueue.main.async {
+                yokeLog("firing passive show")
+                YokePanel.shared.showPassive()
+            }
+        }
+        // Space to start, Shift+P to skip onboarding
+        let pKeyCode: UInt16 = 35
+        let spaceKeyCode: UInt16 = 49
+        func handleOnboardingKey(_ event: NSEvent) {
+            if event.keyCode == spaceKeyCode && OnboardingState.shared.step == 1 {
+                DispatchQueue.main.async { OnboardingState.shared.runBootSequence() }
+            } else if event.keyCode == pKeyCode && event.modifierFlags.contains(.shift) {
+                DispatchQueue.main.async { OnboardingState.shared.skipOnboarding() }
+            }
+        }
+        NSEvent.addGlobalMonitorForEvents(matching: .keyDown) { handleOnboardingKey($0) }
+        NSEvent.addLocalMonitorForEvents(matching: .keyDown) { handleOnboardingKey($0); return $0 }
+    } else {
+        yokeLog("onboarding complete, skipping passive show")
     }
-    yokeLog("initYoke: done, yoke mode has \(config.modes["yoke"]?.bindings.count ?? 0) bindings")
+
+    yokeLog("initYoke: done")
 }
 
 func yokeLog(_ msg: String) {
     let line = "[YOKE] \(msg)\n"
-    if let data = line.data(using: .utf8) {
-        let logFile = FileHandle(forWritingAtPath: "/tmp/yoke.log") ?? {
-            FileManager.default.createFile(atPath: "/tmp/yoke.log", contents: nil)
-            return FileHandle(forWritingAtPath: "/tmp/yoke.log")!
-        }()
-        logFile.seekToEndOfFile()
-        logFile.write(data)
-        logFile.closeFile()
+    guard let data = line.data(using: .utf8) else { return }
+    let path = "/tmp/yoke.log"
+    if !FileManager.default.fileExists(atPath: path) {
+        FileManager.default.createFile(atPath: path, contents: nil)
     }
+    guard let logFile = FileHandle(forWritingAtPath: path) else { return }
+    logFile.seekToEndOfFile()
+    logFile.write(data)
+    logFile.closeFile()
 }
 
 // MARK: - Re-inject after config reload
+
+@MainActor private var yokeModifierMonitorsInstalled = false
+@MainActor private var yokeGlobalFlagsMonitor: Any?
+@MainActor private var yokeLocalFlagsMonitor: Any?
 
 @MainActor
 public func yokeOnConfigReloaded() {
     yokeLog("config reloaded — re-injecting yoke bindings")
     injectYokeBindingsIntoConfig()
-}
 
-// MARK: - Inject Yoke key bindings into AeroSpace's mode system
-
-@MainActor
-func injectYokeBindings() {
-    injectYokeBindingsIntoConfig()
-
-    // Track modifier keys (alt/shift) for UI indicators
-    NSEvent.addGlobalMonitorForEvents(matching: .flagsChanged) { event in
+    // Install modifier monitors once (remove old ones first to avoid leaks)
+    if let m = yokeGlobalFlagsMonitor { NSEvent.removeMonitor(m) }
+    if let m = yokeLocalFlagsMonitor { NSEvent.removeMonitor(m) }
+    yokeGlobalFlagsMonitor = NSEvent.addGlobalMonitorForEvents(matching: .flagsChanged) { event in
         Task { @MainActor in
             let alt = event.modifierFlags.contains(.option)
             let shift = event.modifierFlags.contains(.shift)
@@ -66,7 +92,7 @@ func injectYokeBindings() {
             if shift != KeyState.shared.shiftHeld { KeyState.shared.shiftHeld = shift }
         }
     }
-    NSEvent.addLocalMonitorForEvents(matching: .flagsChanged) { event in
+    yokeLocalFlagsMonitor = NSEvent.addLocalMonitorForEvents(matching: .flagsChanged) { event in
         Task { @MainActor in
             let alt = event.modifierFlags.contains(.option)
             let shift = event.modifierFlags.contains(.shift)
@@ -75,153 +101,67 @@ func injectYokeBindings() {
         }
         return event
     }
+    yokeModifierMonitorsInstalled = true
 
-    // Activate mode to register hotkeys (initAppBundle already activated main mode,
-    // but our bindings weren't there yet)
-    Task { @MainActor in
-        try? await activateMode(activeMode)
-        yokeLog("activated mode after injection: \(activeMode ?? "nil")")
-    }
+    // Don't call activateMode here — reloadConfig() already calls it after us
+    yokeLog("injected bindings, waiting for activateMode from reloadConfig")
 }
+
+// MARK: - Inject Yoke key bindings into AeroSpace's mode system
 
 @MainActor
 func injectYokeBindingsIntoConfig() {
-    // cmd-esc in main mode → enter yoke mode + show HUD
-    addBinding(toMode: mainModeId, key: .escape, modifiers: .command, commands: "mode yoke") {
-        yokeLog("cmd-esc triggered! showing yoke")
-        YokePanel.shared.show()
-    }
-
-    // Yoke mode bindings
-    func yoke(_ key: Key, _ mods: NSEvent.ModifierFlags = [], cmd: String, label: String) {
-        addBinding(toMode: "yoke", key: key, modifiers: mods, commands: cmd) {
-            if KeyState.shared.helpPage > 0 { KeyState.shared.helpPage = 0 }
-            KeyState.shared.press(label)
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
-                KeyState.shared.release(label)
+    // cmd-esc in main mode → enter yoke mode + show HUD (or handle onboarding)
+    addBinding(toMode: mainModeId, key: .escape, modifiers: .command, commands: nil) {
+        let ob = OnboardingState.shared
+        if ob.isComplete {
+            if case .cmd(let c) = parseCommand("mode yoke") {
+                Task {
+                    guard let token: RunSessionGuard = .isServerEnabled else { return }
+                    try? await runLightSession(.hotkeyBinding, token) {
+                        _ = try await c.run(.defaultEnv, CmdIo(stdin: .emptyStdin))
+                    }
+                    YokePanel.shared.show()
+                    YokeKeys.shared.activate()
+                }
             }
-            yokeRefreshUI()
+        } else if ob.step == 1 {
+            ob.runBootSequence()
+        } else if ob.isBooting {
+            return
+        } else if ob.step == 3 {
+            ob.handleCmdEscToggle()
+        } else if ob.step == 10 {
+            // Help step — cmd-esc should just work normally if onboarding done
+            if ob.isComplete { /* fall through to normal */ }
+        } else if ob.step >= 4 {
+            ob.advanceOnboarding()
+        } else {
+            if !YokePanel.shared.isVisible {
+                YokePanel.shared.showPassive()
+            }
         }
     }
 
+    // esc/enter in yoke mode → exit yoke mode + hide panel + deactivate keys
     func yokeExit(_ key: Key) {
-        addBinding(toMode: "yoke", key: key, modifiers: [], commands: "mode main") {
+        addBinding(toMode: "yoke", key: key, modifiers: [], commands: nil) {
+            YokeKeys.shared.deactivate()
             YokePanel.shared.hide()
-        }
-    }
-
-    // Exit
-    yokeExit(.escape)
-    yokeExit(.return)
-
-    // Focus — WASD
-    yoke(.w, cmd: "focus up", label: "W")
-    yoke(.a, cmd: "focus left", label: "A")
-    yoke(.s, cmd: "focus down", label: "S")
-    yoke(.d, cmd: "focus right", label: "D")
-
-    // Move — Alt+WASD
-    yoke(.w, .option, cmd: "move up", label: "⌥W")
-    yoke(.a, .option, cmd: "move left", label: "⌥A")
-    yoke(.s, .option, cmd: "move down", label: "⌥S")
-    yoke(.d, .option, cmd: "move right", label: "⌥D")
-
-    // Merge — Shift+WASD
-    yoke(.w, .shift, cmd: "join-with up", label: "⇧W")
-    yoke(.a, .shift, cmd: "join-with left", label: "⇧A")
-    yoke(.s, .shift, cmd: "join-with down", label: "⇧S")
-    yoke(.d, .shift, cmd: "join-with right", label: "⇧D")
-
-    // Resize — Q/E (Shift for fine). Floating: diagonal expand/collapse from center.
-    func yokeResize(_ key: Key, mods: NSEvent.ModifierFlags = [], amount: CGFloat, label: String) {
-        addBinding(toMode: "yoke", key: key, modifiers: mods, commands: nil) {
-            if KeyState.shared.helpPage > 0 { KeyState.shared.helpPage = 0 }
-            KeyState.shared.press(label)
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
-                KeyState.shared.release(label)
-            }
-            if let window = focus.windowOrNil {
-                if window.isFloating {
-                    resizeFloatingWindow(by: amount)
-                } else {
-                    let dir = amount > 0 ? "+" : ""
-                    if case .cmd(let cmd) = parseCommand("resize smart \(dir)\(Int(amount))") {
-                        let env = CmdEnv(windowId: window.windowId, workspaceName: nil)
-                        Task { _ = try? await cmd.run(env, CmdIo(stdin: .emptyStdin)) }
+            if case .cmd(let c) = parseCommand("mode main") {
+                Task {
+                    guard let token: RunSessionGuard = .isServerEnabled else { return }
+                    try? await runLightSession(.hotkeyBinding, token) {
+                        _ = try await c.run(.defaultEnv, CmdIo(stdin: .emptyStdin))
                     }
                 }
             }
-            yokeRefreshUI()
         }
     }
+    yokeExit(.escape)
+    yokeExit(.return)
 
-    yokeResize(.q, amount: -150, label: "Q")
-    yokeResize(.e, amount: 150, label: "E")
-    yokeResize(.q, mods: .shift, amount: -50, label: "⇧Q")
-    yokeResize(.e, mods: .shift, amount: 50, label: "⇧E")
-
-    // Float toggle — F (auto-centers on float)
-    addBinding(toMode: "yoke", key: .f, modifiers: [], commands: "layout floating tiling") {
-        if KeyState.shared.helpPage > 0 { KeyState.shared.helpPage = 0 }
-        KeyState.shared.press("F")
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
-            KeyState.shared.release("F")
-        }
-        if let window = focus.windowOrNil, window.isFloating {
-            centerFocusedWindow()
-        }
-        yokeRefreshUI()
-    }
-
-    // Layout — R (tiles ↔ accordion), Shift+R (horizontal ↔ vertical). No-op when floating.
-    addBinding(toMode: "yoke", key: .r, modifiers: [], commands: nil) {
-        if KeyState.shared.helpPage > 0 { KeyState.shared.helpPage = 0 }
-        KeyState.shared.press("R")
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
-            KeyState.shared.release("R")
-        }
-        if let window = focus.windowOrNil, !window.isFloating {
-            if case .cmd(let cmd) = parseCommand("layout tiles accordion") {
-                let env = CmdEnv(windowId: window.windowId, workspaceName: nil)
-                Task { _ = try? await cmd.run(env, CmdIo(stdin: .emptyStdin)) }
-            }
-        }
-        yokeRefreshUI()
-    }
-    addBinding(toMode: "yoke", key: .r, modifiers: .shift, commands: nil) {
-        if KeyState.shared.helpPage > 0 { KeyState.shared.helpPage = 0 }
-        KeyState.shared.press("⇧R")
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
-            KeyState.shared.release("⇧R")
-        }
-        if let window = focus.windowOrNil, !window.isFloating {
-            if case .cmd(let cmd) = parseCommand("layout horizontal vertical") {
-                let env = CmdEnv(windowId: window.windowId, workspaceName: nil)
-                Task { _ = try? await cmd.run(env, CmdIo(stdin: .emptyStdin)) }
-            }
-        }
-        yokeRefreshUI()
-    }
-
-    // Workspaces — 1-9 (Alt to move window)
-    let numKeys: [Key] = [.one, .two, .three, .four, .five, .six, .seven, .eight, .nine]
-    for (i, key) in numKeys.enumerated() {
-        let n = i + 1
-        yoke(key, cmd: "workspace \(n)", label: "\(n)")
-        yoke(key, .option, cmd: "move-node-to-workspace \(n)", label: "⌥\(n)")
-    }
-
-    // Help — H
-    addBinding(toMode: "yoke", key: .h, modifiers: [], commands: nil) {
-        let next = KeyState.shared.helpPage + 1
-        KeyState.shared.helpPage = next > 6 ? 0 : next
-        KeyState.shared.press("H")
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
-            KeyState.shared.release("H")
-        }
-    }
-
-    yokeLog("injected \(config.modes["yoke"]?.bindings.count ?? 0) yoke bindings, main has \(config.modes[mainModeId]?.bindings.count ?? 0)")
+    yokeLog("injected 3 config bindings (cmd-esc, esc, enter)")
 }
 
 // MARK: - Helper: add a binding to a mode
@@ -241,21 +181,14 @@ func addBinding(toMode mode: String, key: Key, modifiers: NSEvent.ModifierFlags,
     let keyNotation = (modifiers.isEmpty ? "" : modifiers.toString() + "-") + key.toString()
     let binding = HotkeyBinding(modifiers, key, cmds, descriptionWithKeyNotation: keyNotation)
 
-    // Store the after-action
     yokeAfterActions[keyNotation] = afterAction
-
-    // Register for the block tap (so it knows to let this key through)
-    if mode == "yoke" {
-        registerYokeKey(key, modifiers)
-    }
-
     config.modes[mode, default: .zero].bindings[binding.descriptionWithKeyCode] = binding
 }
 
-// Store after-action closures keyed by notation
+// Store after-action closures for the 3 config bindings (cmd-esc, esc, enter)
 @MainActor var yokeAfterActions: [String: @MainActor () -> Void] = [:]
 
-// MARK: - Registered key combos for the block tap (thread-safe, no MainActor)
+// MARK: - Registered key combos for the block tap (thread-safe)
 
 struct YokeKeyCombo: Hashable {
     let keyCode: UInt16
@@ -264,22 +197,20 @@ struct YokeKeyCombo: Hashable {
     let cmd: Bool
 }
 
-// Set of all registered yoke key combos — accessed from event tap callback
-nonisolated(unsafe) var yokeRegisteredKeys = Set<YokeKeyCombo>()
+nonisolated let yokeStateQueue = DispatchQueue(label: "yoke.state")
+nonisolated(unsafe) private var _yokeRegisteredKeys = Set<YokeKeyCombo>()
 
-@MainActor
-func registerYokeKey(_ key: Key, _ modifiers: NSEvent.ModifierFlags) {
-    yokeRegisteredKeys.insert(YokeKeyCombo(
-        keyCode: UInt16(key.carbonKeyCode),
-        shift: modifiers.contains(.shift),
-        alt: modifiers.contains(.option),
-        cmd: modifiers.contains(.command)
-    ))
+nonisolated func yokeSetRegisteredKeys(_ keys: Set<YokeKeyCombo>) {
+    yokeStateQueue.sync { _yokeRegisteredKeys = keys }
+}
+
+nonisolated func yokeCheckRegisteredKey(_ combo: YokeKeyCombo) -> Bool {
+    yokeStateQueue.sync { _yokeRegisteredKeys.contains(combo) }
 }
 
 // MARK: - Event tap to block unregistered keys in yoke mode
 
-nonisolated func installYokeBlockTap() -> CFMachPort? {
+nonisolated func installYokeBlockTap() -> (CFMachPort, CFRunLoopSource)? {
     let eventMask: CGEventMask = (1 << CGEventType.keyDown.rawValue) | (1 << CGEventType.keyUp.rawValue)
 
     guard let tap = CGEvent.tapCreate(
@@ -289,7 +220,7 @@ nonisolated func installYokeBlockTap() -> CFMachPort? {
         eventsOfInterest: eventMask,
         callback: { _, type, event, _ -> Unmanaged<CGEvent>? in
             // Only block when yoke is visible (check without MainActor)
-            guard yokePanelVisible else {
+            guard yokeIsPanelVisible() else {
                 return Unmanaged.passUnretained(event)
             }
 
@@ -303,7 +234,7 @@ nonisolated func installYokeBlockTap() -> CFMachPort? {
             )
 
             // If this key is registered, let it through (HotKey already handled it)
-            if yokeRegisteredKeys.contains(combo) {
+            if yokeCheckRegisteredKey(combo) {
                 return Unmanaged.passUnretained(event)
             }
 
@@ -330,22 +261,36 @@ nonisolated func installYokeBlockTap() -> CFMachPort? {
         return nil
     }
 
-    let runLoopSource = CFMachPortCreateRunLoopSource(kCFAllocatorDefault, tap, 0)
-    CFRunLoopAddSource(CFRunLoopGetCurrent(), runLoopSource, .commonModes)
+    guard let runLoopSource = CFMachPortCreateRunLoopSource(kCFAllocatorDefault, tap, 0) else {
+        return nil
+    }
+    // Don't add to run loop yet — show() will add it
     CGEvent.tapEnable(tap: tap, enable: false) // start disabled
-    return tap
+    return (tap, runLoopSource)
 }
 
 // Thread-safe visibility flag for the event tap callback
-nonisolated(unsafe) var yokePanelVisible = false
+nonisolated(unsafe) private var _yokePanelVisible = false
+
+nonisolated func yokeSetPanelVisible(_ value: Bool) {
+    yokeStateQueue.sync { _yokePanelVisible = value }
+}
+
+nonisolated func yokeIsPanelVisible() -> Bool {
+    yokeStateQueue.sync { _yokePanelVisible }
+}
 
 // MARK: - UI refresh after any yoke action
 
 @MainActor
 func yokeRefreshUI() {
     WorkspaceMap.shared.refreshAll()
-    showFocusBorder()
+    // No border during early onboarding steps
+    if OnboardingState.shared.isComplete || OnboardingState.shared.step >= 5 {
+        showFocusBorder()
+    }
     KeyState.shared.focusedIsFloating = focus.windowOrNil?.isFloating ?? false
+    OnboardingState.shared.updateWindowCount(WorkspaceMap.shared.windows.count)
 }
 
 // MARK: - Floating window helpers

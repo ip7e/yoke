@@ -190,7 +190,7 @@ On startup (after 2s delay), windows are restored:
 - [ ] Multi-monitor support for focus border
 - [ ] Flatten/split-container shortcuts
 - [ ] Animation when exiting yoke mode
-- [ ] Persist layout across reboots (match by app bundle ID + window title)
+- [ ] Persist layout across restarts (save/restore window frames, workspaces, floating state to JSON — no aerospace commands, just raw AX frames)
 - [ ] Publish as a standalone AeroSpace plugin once plugin API exists
 
 ## Notes

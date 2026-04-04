@@ -6,8 +6,6 @@ import HotKey
 @MainActor private var hotkeys: [String: HotKey] = [:]
 
 @MainActor func resetHotKeys() {
-    // Explicitly unregister all hotkeys. We cannot always rely on destruction of the HotKey object to trigger
-    // unregistration because we might be running inside a hotkey handler that is keeping its HotKey object alive.
     for (_, key) in hotkeys {
         key.isEnabled = false
     }
@@ -28,25 +26,30 @@ extension HotKey {
 @MainActor var activeMode: String? = mainModeId
 @MainActor func activateMode(_ targetMode: String?) async throws {
     let targetBindings = targetMode.flatMap { config.modes[$0] }?.bindings ?? [:]
-    for binding in targetBindings.values where !hotkeys.keys.contains(binding.descriptionWithKeyCode) {
-        hotkeys[binding.descriptionWithKeyCode] = HotKey(key: binding.keyCode, modifiers: binding.modifiers, keyDownHandler: {
+    let bindingsSnapshot = Array(targetBindings.values)
+    for binding in bindingsSnapshot where !hotkeys.keys.contains(binding.descriptionWithKeyCode) {
+        let keyCode = binding.descriptionWithKeyCode
+        let keyNotation = binding.descriptionWithKeyNotation
+        hotkeys[keyCode] = HotKey(key: binding.keyCode, modifiers: binding.modifiers, keyDownHandler: {
             Task {
                 if let activeMode {
                     broadcastEvent(.bindingTriggered(
                         mode: activeMode,
-                        binding: binding.descriptionWithKeyNotation,
+                        binding: keyNotation,
                     ))
-                    try await runLightSession(.hotkeyBinding, .checkServerIsEnabledOrDie()) { () throws in
-                        _ = try await config.modes[activeMode]?.bindings[binding.descriptionWithKeyCode]?.commands
-                            .runCmdSeq(.defaultEnv, .emptyStdin)
+                    if let cmds = config.modes[activeMode]?.bindings[keyCode]?.commands, !cmds.isEmpty {
+                        try await runLightSession(.hotkeyBinding, .checkServerIsEnabledOrDie()) { () throws in
+                            _ = try await cmds.runCmdSeq(.defaultEnv, .emptyStdin)
+                        }
                     }
-                    yokeAfterBinding(binding.descriptionWithKeyNotation)
+                    yokeAfterBinding(keyNotation)
                 }
             }
         })
     }
+    let targetKeys = Set(targetBindings.keys)
     for (binding, key) in hotkeys {
-        if targetBindings.keys.contains(binding) {
+        if targetKeys.contains(binding) {
             key.isEnabled = true
         } else {
             key.isEnabled = false

@@ -17,19 +17,21 @@ var defaultConfigUrl: URL {
     if isUnitTest {
         return getDefaultConfigUrlFromProject()
     } else {
+        // Only use bundled resource, never project files
         return Bundle.main.url(forResource: "default-config", withExtension: "toml")
-            // Useful for debug builds that are not app bundles
-            ?? getDefaultConfigUrlFromProject()
+            ?? URL(filePath: "/nonexistent")
     }
 }
+
 @MainActor let defaultConfig: Config = {
-    let parsedConfig = parseConfig(Result { try String(contentsOf: defaultConfigUrl, encoding: .utf8) }.getOrDie())
+    // Hardcoded Yoke defaults — no config file needed
+    let parsedConfig = parseConfig(minimalConfigToml)
     if !parsedConfig.errors.isEmpty {
-        die("Can't parse default config: \(parsedConfig.errors)")
+        die("Can't parse inline config: \(parsedConfig.errors)")
     }
     return parsedConfig.config
 }()
-@MainActor var config: Config = defaultConfig // todo move to Ctx?
+@MainActor var config: Config = defaultConfig
 @MainActor var configUrl: URL = defaultConfigUrl
 
 struct Config: ConvenienceCopyable {

@@ -21,7 +21,14 @@ func readConfig(forceConfigUrl: URL? = nil) -> Result<(Config, URL), String> {
                 return .failure(msg)
         }
     }
-    let (parsedConfig, errors) = (try? String(contentsOf: configUrl, encoding: .utf8)).map { parseConfig($0) } ?? (defaultConfig, [])
+    let configString: String?
+    if let contents = try? String(contentsOf: configUrl, encoding: .utf8) {
+        configString = contents
+    } else {
+        // No readable config file — use inline minimal config
+        configString = minimalConfigToml
+    }
+    let (parsedConfig, errors) = configString.map { parseConfig($0) } ?? (defaultConfig, [])
 
     if errors.isEmpty {
         return .success((parsedConfig, configUrl))
@@ -34,6 +41,32 @@ func readConfig(forceConfigUrl: URL? = nil) -> Result<(Config, URL), String> {
         return .failure(msg)
     }
 }
+
+// Hardcoded fallback when no config file and no bundled resource exists
+let minimalConfigToml = """
+after-startup-command = []
+enable-normalization-flatten-containers = true
+enable-normalization-opposite-orientation-for-nested-containers = true
+default-root-container-layout = 'tiles'
+default-root-container-orientation = 'auto'
+key-mapping.preset = 'qwerty'
+accordion-padding = 30
+
+[[on-window-detected]]
+run = ['layout floating']
+
+[gaps]
+inner.horizontal = 10
+inner.vertical = 10
+outer.left = 10
+outer.bottom = 10
+outer.top = 10
+outer.right = 10
+
+[mode.main.binding]
+
+[mode.yoke.binding]
+"""
 
 enum ConfigParseError: Error, CustomStringConvertible, Equatable {
     case semantic(_ backtrace: ConfigBacktrace, _ message: String)
