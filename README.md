@@ -8,29 +8,23 @@ Built as a fork of [AeroSpace](https://github.com/nikitabobko/AeroSpace) by Niki
 
 ## Why a Fork?
 
-AeroSpace is a powerful, keyboard-driven tiling window manager with no UI — it's designed for power users who configure everything via TOML files and memorize keybindings. Yoke takes the opposite approach.
+AeroSpace is a great tiling window manager — no UI, TOML config, vim-style `hjkl` shortcuts. It's built for people who already know what tiling is and want full control.
 
-This fork is a **strongly opinionated** reimagining of how window management should work:
+Yoke is the opposite. It's opinionated, visual, and doesn't ask you to configure anything.
 
-**AeroSpace philosophy:** No UI. Config files. Terminal commands. Full flexibility.
+### What's different
 
-**Yoke philosophy:** Visual first. Zero config. Learn by seeing. Opinionated defaults.
+- **New windows open floating by default.** Your desktop feels like normal macOS. You tile things when you want to, not because the WM forced it.
 
-### What Yoke overrides
+- **No config file.** Everything is embedded. Shortcuts, gaps, layouts — all hardcoded. Just works. (Customizable shortcuts are on the TODO.)
 
-- **All new windows open floating.** AeroSpace normally tiles everything immediately. Yoke lets windows float freely until you decide to tile them with `F`. Your desktop feels like normal macOS until you choose otherwise.
+- **WASD instead of hjkl.** AeroSpace uses vim-style navigation. Yoke uses WASD — more natural if you're not a vim user. `Cmd+Esc` enters yoke mode, then WASD moves focus, Alt+WASD moves windows, Q/E resizes.
 
-- **No config file needed.** AeroSpace relies on `aerospace.toml` for everything. Yoke embeds all settings inline — gaps, layouts, key mappings. Install and go.
+- **9 numbered workspaces.** AeroSpace supports arbitrary named workspaces. Yoke just gives you 1-9. Press the number, you're there.
 
-- **Fixed workspace model (1-9).** AeroSpace supports arbitrary named workspaces. Yoke locks it to 9 numbered workspaces — simple, predictable, fits on the status bar.
+- **One global shortcut.** AeroSpace binds dozens of keys globally. Yoke uses only `Cmd+Esc` — everything else lives inside yoke mode. Your shortcut space stays clean.
 
-- **Visual feedback for everything.** AeroSpace is silent — you press a key and things happen. Yoke shows you a live minimap, highlights the focused window with a border, lights up LEDs for modifier states, and animates button presses on the controller.
-
-- **Guided onboarding.** AeroSpace expects you to read docs. Yoke walks you through the basics with a step-by-step interactive tutorial on first launch.
-
-- **Single shortcut entry point.** AeroSpace binds dozens of global shortcuts across modes. Yoke uses one: `Cmd+Esc`. Everything else happens inside yoke mode — your global shortcut space stays clean.
-
-- **Menu bar stripped down.** No version info, no sponsor links, no config editor. Just workspaces, restart onboarding, and quit.
+- **Visual everything.** Live minimap of your windows. Border around the focused window. LEDs light up when you hold modifiers. Buttons animate when you press keys. You always know what's happening.
 
 ## What It Does
 
