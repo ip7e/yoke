@@ -56,8 +56,7 @@ Sources/AppBundle/yoke/
 ├── YokePanel.swift      NSPanel wrapper: show/hide, passive mode
 ├── YokeHUD.swift        init, config bindings (3 only), block tap, border
 ├── OnboardingState.swift  onboarding flow, typewriter, boot sequence
-├── TESkin.swift         TE OP-1 skin (active)
-└── NESSkin.swift        NES controller skin (inactive)
+└── TESkin.swift         TE OP-1 skin
 ```
 
 ## Integration with AeroSpace
