@@ -11,6 +11,7 @@ struct AeroSpaceApp: App {
 
     init() {
         initAppBundle()
+        initYoke()
     }
 
     var body: some Scene {

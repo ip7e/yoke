@@ -1,4 +1,5 @@
 import SwiftUI
+import Common
 
 // MARK: - Hover helper
 
@@ -761,6 +762,10 @@ private struct TEView: View {
                                     Text("www.ika.im")
                                         .font(.system(size: 7, weight: .medium, design: .monospaced))
                                         .foregroundColor(orange.opacity(0.7))
+                                    Spacer().frame(height: 4)
+                                    Text("version \(aeroSpaceAppVersion.contains("SNAPSHOT") ? "TESTING" : aeroSpaceAppVersion)")
+                                        .font(.system(size: 7, weight: .regular, design: .monospaced))
+                                        .foregroundColor(.white.opacity(0.25))
                                     Spacer().frame(height: 10)
                                     Text("BASED ON")
                                         .font(.system(size: 6, weight: .bold, design: .monospaced))
