@@ -747,7 +747,7 @@ private struct TEView: View {
                             // Credits page — scrolls up after 2 seconds
                             let _ = { if keys.creditsStartTick < 0 { keys.creditsStartTick = tape.ticks } }()
                             let elapsed = tape.ticks - keys.creditsStartTick
-                            let creditScroll = max(0, CGFloat(elapsed) / 30 - 2) * 8
+                            let creditScroll = max(0, CGFloat(elapsed) / 10 - 2) * 8
                             let orange = Color(red: 1, green: 0.42, blue: 0)
                             GeometryReader { geo in
                                 let h = geo.size.height
@@ -786,8 +786,8 @@ private struct TEView: View {
 
                             // Hearts glitch-blink after credits scroll away, auto-exit after 5s
                             if creditScroll > 160 {
-                                let heartTicks = elapsed - keys.creditsStartTick - Int(160 / 8 * 30)
-                                if heartTicks > 150 { // ~5 seconds at 30fps
+                                let heartTicks = elapsed - keys.creditsStartTick - Int(160 / 8 * 10)
+                                if heartTicks > 50 { // ~5 seconds at 10fps
                                     let _ = DispatchQueue.main.async { KeyState.shared.helpPage = 0; KeyState.shared.creditsStartTick = -1 }
                                 } else {
                                     let t = tape.ticks
@@ -1044,10 +1044,18 @@ private struct TEView: View {
             .animation(.easeOut(duration: 0.05), value: pressed)
         }
         .frame(width: u1, height: u2)
-        .onTapGesture {
-            guard enabled else { return }
-            action?()
-        }
+        .simultaneousGesture(
+            DragGesture(minimumDistance: 0)
+                .onChanged { _ in
+                    guard enabled else { return }
+                    if keys.pressedKey != shortcut { KeyState.shared.press(shortcut) }
+                }
+                .onEnded { _ in
+                    guard enabled else { return }
+                    KeyState.shared.release(shortcut)
+                    action?()
+                }
+        )
         }
     }
 
@@ -1109,10 +1117,18 @@ private struct TEView: View {
             .animation(.easeOut(duration: 0.05), value: pressed)
         }
         .frame(width: u1, height: u1)
-        .onTapGesture {
-            guard enabled else { return }
-            action?()
-        }
+        .simultaneousGesture(
+            DragGesture(minimumDistance: 0)
+                .onChanged { _ in
+                    guard enabled else { return }
+                    if keys.pressedKey != shortcut { KeyState.shared.press(shortcut) }
+                }
+                .onEnded { _ in
+                    guard enabled else { return }
+                    KeyState.shared.release(shortcut)
+                    action?()
+                }
+        )
         }
     }
 

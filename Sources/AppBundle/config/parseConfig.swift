@@ -12,7 +12,14 @@ func readConfig(forceConfigUrl: URL? = nil) -> Result<(Config, URL), String> {
     } else {
         switch findCustomConfigUrl() {
             case .file(let url): configUrl = url
-            case .noCustomConfigExists: configUrl = defaultConfigUrl
+            case .noCustomConfigExists:
+                // Yoke: no config file — use inline minimal config directly
+                let (parsedConfig, errors) = parseConfig(minimalConfigToml)
+                if errors.isEmpty {
+                    return .success((parsedConfig, defaultConfigUrl))
+                } else {
+                    return .failure("Failed to parse inline config: \(errors.map(\.description).joined(separator: "\n\n"))")
+                }
             case .ambiguousConfigError(let candidates):
                 let msg = """
                     Ambiguous config error. Several configs found:
