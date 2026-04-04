@@ -14,17 +14,15 @@ Yoke is the opposite. It's opinionated, visual, and doesn't ask you to configure
 
 ### What's different
 
-- **New windows open floating by default.** Your desktop feels like normal macOS. You tile things when you want to, not because the WM forced it.
+- **Floating by default.** New windows open floating. Your desktop feels like normal macOS. You tile when you want to.
 
-- **No config file.** Everything is embedded. Shortcuts, gaps, layouts — all hardcoded. Just works. (Customizable shortcuts are on the TODO.)
+- **No config file.** Everything hardcoded. Just works. (Custom shortcuts are TODO.)
 
-- **WASD instead of hjkl.** AeroSpace uses vim-style navigation. Yoke uses WASD — more natural if you're not a vim user. `Cmd+Esc` enters yoke mode, then WASD moves focus, Alt+WASD moves windows, Q/E resizes.
+- **Different shortcuts.** AeroSpace uses vim-style `hjkl`. Yoke uses WASD for navigation, `Cmd+Esc` to enter yoke mode, Q/E to resize, F to float. Feels more like a game controller than a terminal.
 
-- **9 numbered workspaces.** AeroSpace supports arbitrary named workspaces. Yoke just gives you 1-9. Press the number, you're there.
+- **9 workspaces.** Press a number, you're there.
 
-- **One global shortcut.** AeroSpace binds dozens of keys globally. Yoke uses only `Cmd+Esc` — everything else lives inside yoke mode. Your shortcut space stays clean.
-
-- **Visual everything.** Live minimap of your windows. Border around the focused window. LEDs light up when you hold modifiers. Buttons animate when you press keys. You always know what's happening.
+- **Visual feedback.** You see what's happening — minimap shows your layout, border highlights the focused window, modifier LEDs react to alt/shift.
 
 ## What It Does
 
