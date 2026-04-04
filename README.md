@@ -37,18 +37,14 @@ Yoke is the opposite. It's opinionated, visual, and doesn't ask you to configure
 ## Install
 
 ```bash
-# Build from source (requires Xcode + Swift)
-swift build -c release
-
-# The binary is at .build/release/YokeApp
-# Or build the .app bundle:
-mkdir -p Yoke.app/Contents/MacOS
-cp .build/release/YokeApp Yoke.app/Contents/MacOS/Yoke
-# (see Sources/AppBundle/yoke/README.md for Info.plist)
+brew tap ip7e/yoke
+brew install --cask yoke
 ```
 
+Or download the latest `.app` from [Releases](https://github.com/ip7e/yoke/releases).
+
 **Requirements:**
-- macOS 14+
+- macOS 13+ (Ventura)
 - Accessibility permission (prompted on first launch)
 
 ## Shortcuts
