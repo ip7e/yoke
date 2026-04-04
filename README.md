@@ -16,13 +16,13 @@ Yoke is the opposite. It's opinionated, visual, and doesn't ask you to configure
 
 - **Floating by default.** New windows open floating. Your desktop feels like normal macOS. You tile when you want to.
 
-- **No config file.** Everything hardcoded. Just works. (Custom shortcuts are TODO.)
+- **No config file.** Managed by the app. Customization is TODO.
 
-- **Different shortcuts.** AeroSpace uses vim-style `hjkl`. Yoke uses WASD for navigation, `Cmd+Esc` to enter yoke mode, Q/E to resize, F to float. Feels more like a game controller than a terminal.
+- **Different shortcuts.** AeroSpace uses vim-style `hjkl`. Yoke uses WASD, `Cmd+Esc` to enter yoke mode, Q/E to resize, F to float. Feels more like a game controller.
 
-- **9 workspaces.** Press a number, you're there.
+- **9 workspaces only.**
 
-- **Visual feedback.** You see what's happening — minimap shows your layout, border highlights the focused window, modifier LEDs react to alt/shift.
+- **Visual feedback.** Minimap, focus border, modifier LEDs.
 
 ## What It Does
 
