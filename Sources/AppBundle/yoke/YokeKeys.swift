@@ -71,6 +71,13 @@ class YokeKeys {
             bind(key, .option, cmd: "move-node-to-workspace \(n)", label: "⌥\(n)")
         }
 
+        // Update — U (open release page when update available)
+        bindCustom(.u, label: "U") {
+            if UpdateChecker.shared.availableVersion != nil {
+                UpdateChecker.shared.openReleasePage()
+            }
+        }
+
         // Help — H
         bindCustom(.h, label: "H", dismissHelp: false) {
             OnboardingState.shared.helpPressedDuringOnboarding()

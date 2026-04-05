@@ -1,4 +1,4 @@
-import Foundation
+import AppKit
 import Common
 
 @MainActor
@@ -79,6 +79,16 @@ class UpdateChecker: ObservableObject {
                 }
             }
         }.resume()
+    }
+
+    func openReleasePage() {
+        let tag = availableVersion ?? "latest"
+        let urlString = isHomebrew
+            ? "https://formulae.brew.sh/cask/yoke"
+            : "https://github.com/\(repo)/releases/tag/v\(tag)"
+        if let url = URL(string: urlString) {
+            NSWorkspace.shared.open(url)
+        }
     }
 
     private func isNewer(remote: String, current: String) -> Bool {
