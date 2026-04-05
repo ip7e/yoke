@@ -24,6 +24,7 @@ public func menuBar(viewModel: TrayMenuModel) -> some Scene { // todo should it 
             OnboardingState.shared.reset()
             OnboardingState.shared.startOnboarding()
             YokeKeys.shared.deactivate()
+            yokeSwitchToMode("main")
             YokePanel.shared.showPassive()
         }
         Divider()

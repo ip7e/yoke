@@ -41,6 +41,11 @@ brew tap ip7e/yoke
 brew install --cask yoke
 ```
 
+**Upgrade:**
+```bash
+brew update && brew upgrade --cask yoke
+```
+
 Or download the latest `.app` from [Releases](https://github.com/ip7e/yoke/releases).
 
 **Requirements:**

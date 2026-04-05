@@ -292,16 +292,10 @@ class OnboardingState: ObservableObject {
         advanceTo(step: 5, enabling: [.dpad, .move, .merge], message: "", hint: "")
 
         // Enter real yoke mode — keys trapped, border shown, WASD works
-        if case .cmd(let c) = parseCommand("mode yoke") {
-            Task {
-                guard let token: RunSessionGuard = .isServerEnabled else { return }
-                try? await runLightSession(.hotkeyBinding, token) {
-                    _ = try await c.run(.defaultEnv, CmdIo(stdin: .emptyStdin))
-                }
-                YokePanel.shared.hidePassive()
-                YokePanel.shared.show()
-                YokeKeys.shared.activate()
-            }
+        yokeSwitchToMode("yoke") {
+            YokePanel.shared.hidePassive()
+            YokePanel.shared.show()
+            YokeKeys.shared.activate()
         }
 
         typewrite("WASD moves focus\nbetween windows. try it.\nSPACE to continue.")
@@ -328,16 +322,10 @@ class OnboardingState: ObservableObject {
 
         // Enter yoke mode if not already
         if !YokeKeys.shared.isActive {
-            if case .cmd(let c) = parseCommand("mode yoke") {
-                Task {
-                    guard let token: RunSessionGuard = .isServerEnabled else { return }
-                    try? await runLightSession(.hotkeyBinding, token) {
-                        _ = try await c.run(.defaultEnv, CmdIo(stdin: .emptyStdin))
-                    }
-                    YokePanel.shared.hidePassive()
-                    YokePanel.shared.show()
-                    YokeKeys.shared.activate()
-                }
+            yokeSwitchToMode("yoke") {
+                YokePanel.shared.hidePassive()
+                YokePanel.shared.show()
+                YokeKeys.shared.activate()
             }
         }
 
@@ -495,16 +483,10 @@ class OnboardingState: ObservableObject {
         enabledFeatures = Set(YokeFeature.allCases)
         markComplete()
         // Enter yoke mode instead of hiding
-        if case .cmd(let c) = parseCommand("mode yoke") {
-            Task {
-                guard let token: RunSessionGuard = .isServerEnabled else { return }
-                try? await runLightSession(.hotkeyBinding, token) {
-                    _ = try await c.run(.defaultEnv, CmdIo(stdin: .emptyStdin))
-                }
-                YokePanel.shared.hidePassive()
-                YokePanel.shared.show()
-                YokeKeys.shared.activate()
-            }
+        yokeSwitchToMode("yoke") {
+            YokePanel.shared.hidePassive()
+            YokePanel.shared.show()
+            YokeKeys.shared.activate()
         }
     }
 

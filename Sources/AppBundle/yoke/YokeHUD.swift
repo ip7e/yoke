@@ -108,6 +108,21 @@ public func yokeOnConfigReloaded() {
     yokeLog("injected bindings, waiting for activateMode from reloadConfig")
 }
 
+// MARK: - Mode switching helpers
+
+@MainActor
+func yokeSwitchToMode(_ mode: String, _ then: (@MainActor () -> Void)? = nil) {
+    if case .cmd(let c) = parseCommand("mode \(mode)") {
+        Task {
+            guard let token: RunSessionGuard = .isServerEnabled else { return }
+            try? await runLightSession(.hotkeyBinding, token) {
+                _ = try await c.run(.defaultEnv, CmdIo(stdin: .emptyStdin))
+            }
+            then?()
+        }
+    }
+}
+
 // MARK: - Inject Yoke key bindings into AeroSpace's mode system
 
 @MainActor
@@ -116,15 +131,9 @@ func injectYokeBindingsIntoConfig() {
     addBinding(toMode: mainModeId, key: .escape, modifiers: .command, commands: nil) {
         let ob = OnboardingState.shared
         if ob.isComplete {
-            if case .cmd(let c) = parseCommand("mode yoke") {
-                Task {
-                    guard let token: RunSessionGuard = .isServerEnabled else { return }
-                    try? await runLightSession(.hotkeyBinding, token) {
-                        _ = try await c.run(.defaultEnv, CmdIo(stdin: .emptyStdin))
-                    }
-                    YokePanel.shared.show()
-                    YokeKeys.shared.activate()
-                }
+            yokeSwitchToMode("yoke") {
+                YokePanel.shared.show()
+                YokeKeys.shared.activate()
             }
         } else if ob.step == 1 {
             ob.runBootSequence()
@@ -149,14 +158,7 @@ func injectYokeBindingsIntoConfig() {
         addBinding(toMode: "yoke", key: key, modifiers: [], commands: nil) {
             YokeKeys.shared.deactivate()
             YokePanel.shared.hide()
-            if case .cmd(let c) = parseCommand("mode main") {
-                Task {
-                    guard let token: RunSessionGuard = .isServerEnabled else { return }
-                    try? await runLightSession(.hotkeyBinding, token) {
-                        _ = try await c.run(.defaultEnv, CmdIo(stdin: .emptyStdin))
-                    }
-                }
-            }
+            yokeSwitchToMode("main")
         }
     }
     yokeExit(.escape)
