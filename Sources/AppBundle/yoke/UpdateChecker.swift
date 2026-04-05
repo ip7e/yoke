@@ -14,20 +14,15 @@ class UpdateChecker: ObservableObject {
             .appendingPathComponent(".config/yoke/update-check.json")
     }()
 
-    private init() {}
-
-    // MARK: - Install method detection
-
-    func detectInstallMethod() {
+    private init() {
         let path = Bundle.main.executablePath ?? ProcessInfo.processInfo.arguments.first ?? ""
         isHomebrew = path.hasPrefix("/opt/homebrew/") || path.hasPrefix("/usr/local/")
     }
 
     // MARK: - State persistence
 
-    private struct State: Codable {
+    private struct State: Codable, Sendable {
         var lastCheck: Date?
-        var dismissedVersion: String?
     }
 
     private func loadState() -> State {
@@ -49,8 +44,6 @@ class UpdateChecker: ObservableObject {
     // MARK: - GitHub Releases check
 
     func checkIfNeeded() {
-        detectInstallMethod()
-
         let state = loadState()
 
         // Skip if checked within last 24h
@@ -77,7 +70,7 @@ class UpdateChecker: ObservableObject {
 
             Task { @MainActor in
                 guard let self = self else { return }
-                let newState = State(lastCheck: Date(), dismissedVersion: state.dismissedVersion)
+                let newState = State(lastCheck: Date())
                 self.saveState(newState)
 
                 if remote != current && self.isNewer(remote: remote, current: current) {
