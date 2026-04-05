@@ -12,6 +12,7 @@ nonisolated(unsafe) let activeSkin: any YokeSkin = TESkin()
 @MainActor
 public func initYoke() {
     yokeLog("initYoke: starting")
+    UpdateChecker.shared.checkIfNeeded()
     OnboardingState.shared.load()
     if !OnboardingState.shared.isComplete {
         OnboardingState.shared.startOnboarding()
