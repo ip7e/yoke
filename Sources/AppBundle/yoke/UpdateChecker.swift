@@ -44,6 +44,7 @@ class UpdateChecker: ObservableObject {
     // MARK: - GitHub Releases check
 
     func checkIfNeeded() {
+        if aeroSpaceAppVersion.contains("SNAPSHOT") { return }
         let state = loadState()
 
         // Skip if checked within last 24h
