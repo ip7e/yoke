@@ -91,6 +91,7 @@ private struct TEView: View {
     @ObservedObject var tape = TapeState.shared
     @ObservedObject var workspace = WorkspaceMap.shared
     @ObservedObject var onboarding = OnboardingState.shared
+    @ObservedObject var updateChecker = UpdateChecker.shared
 
     var actionName: String {
         switch keys.pressedKey {
@@ -850,15 +851,25 @@ private struct TEView: View {
                             at: CGPoint(x: w / 2, y: pad + 5)
                         )
                     } else {
-                        ctx.draw(
-                            Text("YOKE").font(.system(size: 7, weight: .bold, design: .monospaced)).foregroundColor(.white.opacity(0.5)),
-                            at: CGPoint(x: pad + 14, y: pad + 5)
-                        )
-                        let n = workspace.windows.count
-                        ctx.draw(
-                            Text("\(n) WIN").font(.system(size: 6, weight: .medium, design: .monospaced)).foregroundColor(.white.opacity(0.3)),
-                            at: CGPoint(x: w - pad - 14, y: pad + 5)
-                        )
+                        if let version = updateChecker.availableVersion {
+                            let msg = updateChecker.isHomebrew ? "v\(version) — brew upgrade yoke" : "v\(version) — github.com/ip7e/yoke"
+                            ctx.draw(
+                                Text(msg)
+                                    .font(.system(size: 6, weight: .bold, design: .monospaced))
+                                    .foregroundColor(Color(red: 1, green: 0.42, blue: 0).opacity(0.7)),
+                                at: CGPoint(x: w / 2, y: pad + 5)
+                            )
+                        } else {
+                            ctx.draw(
+                                Text("YOKE").font(.system(size: 7, weight: .bold, design: .monospaced)).foregroundColor(.white.opacity(0.5)),
+                                at: CGPoint(x: pad + 14, y: pad + 5)
+                            )
+                            let n = workspace.windows.count
+                            ctx.draw(
+                                Text("\(n) WIN").font(.system(size: 6, weight: .medium, design: .monospaced)).foregroundColor(.white.opacity(0.3)),
+                                at: CGPoint(x: w - pad - 14, y: pad + 5)
+                            )
+                        }
                     }
 
                     // ── Map area (between header and workspace bar) ──
