@@ -19,11 +19,39 @@ class YokeKeys {
         bind(.s, cmd: "focus down", label: "S")
         bind(.d, cmd: "focus right", label: "D")
 
-        // Move — Alt+WASD
-        bind(.w, .option, cmd: "move up", label: "⌥W")
-        bind(.a, .option, cmd: "move left", label: "⌥A")
-        bind(.s, .option, cmd: "move down", label: "⌥S")
-        bind(.d, .option, cmd: "move right", label: "⌥D")
+        // Move (tiled) / Snap (floating) — Alt+WASD
+        bindCustom(.w, .option, label: "⌥W") {
+            if let window = focus.windowOrNil, window.isFloating {
+                FloatingSnap.shared.snapUp()
+            } else {
+                yokeRunCommand("move up")
+            }
+            yokeRefreshUI()
+        }
+        bindCustom(.a, .option, label: "⌥A") {
+            if let window = focus.windowOrNil, window.isFloating {
+                FloatingSnap.shared.snapLeft()
+            } else {
+                yokeRunCommand("move left")
+            }
+            yokeRefreshUI()
+        }
+        bindCustom(.s, .option, label: "⌥S") {
+            if let window = focus.windowOrNil, window.isFloating {
+                FloatingSnap.shared.snapDown()
+            } else {
+                yokeRunCommand("move down")
+            }
+            yokeRefreshUI()
+        }
+        bindCustom(.d, .option, label: "⌥D") {
+            if let window = focus.windowOrNil, window.isFloating {
+                FloatingSnap.shared.snapRight()
+            } else {
+                yokeRunCommand("move right")
+            }
+            yokeRefreshUI()
+        }
 
         // Merge — Shift+WASD
         bind(.w, .shift, cmd: "join-with up", label: "⇧W")
