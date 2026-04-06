@@ -39,23 +39,37 @@ public func initYoke() {
                 YokePanel.shared.showPassive()
             }
         }
-        // Space to start, Shift+P to skip onboarding
-        let pKeyCode: UInt16 = 35
-        let spaceKeyCode: UInt16 = 49
-        func handleOnboardingKey(_ event: NSEvent) {
-            if event.keyCode == spaceKeyCode && OnboardingState.shared.step == 1 {
-                DispatchQueue.main.async { OnboardingState.shared.runBootSequence() }
-            } else if event.keyCode == pKeyCode && event.modifierFlags.contains(.shift) {
-                DispatchQueue.main.async { OnboardingState.shared.skipOnboarding() }
-            }
-        }
-        NSEvent.addGlobalMonitorForEvents(matching: .keyDown) { handleOnboardingKey($0) }
-        NSEvent.addLocalMonitorForEvents(matching: .keyDown) { handleOnboardingKey($0); return $0 }
+        installOnboardingKeyMonitors()
     } else {
         yokeLog("onboarding complete, skipping passive show")
     }
 
     yokeLog("initYoke: done")
+}
+
+// MARK: - Onboarding key monitors (Space to start, Shift+P to skip)
+
+@MainActor private var onboardingGlobalMonitor: Any?
+@MainActor private var onboardingLocalMonitor: Any?
+
+@MainActor
+func installOnboardingKeyMonitors() {
+    // Remove existing monitors if any
+    if let m = onboardingGlobalMonitor { NSEvent.removeMonitor(m) }
+    if let m = onboardingLocalMonitor { NSEvent.removeMonitor(m) }
+
+    let pKeyCode: UInt16 = 35
+    let spaceKeyCode: UInt16 = 49
+    func handleOnboardingKey(_ event: NSEvent) {
+        if event.keyCode == spaceKeyCode && OnboardingState.shared.step == 1 {
+            DispatchQueue.main.async { OnboardingState.shared.runBootSequence() }
+        } else if event.keyCode == pKeyCode && event.modifierFlags.contains(.shift) {
+            DispatchQueue.main.async { OnboardingState.shared.skipOnboarding() }
+        }
+    }
+    onboardingGlobalMonitor = NSEvent.addGlobalMonitorForEvents(matching: .keyDown) { handleOnboardingKey($0) }
+    onboardingLocalMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { handleOnboardingKey($0); return $0 }
+    yokeLog("onboarding key monitors installed")
 }
 
 func yokeLog(_ msg: String) {
