@@ -141,6 +141,7 @@ class YokeKeys {
         guard isActive else { return }
         isActive = false
         for hk in hotkeys.values { hk.isPaused = true }
+        FloatingSnap.shared.reset()
         yokeLog("YokeKeys: deactivated")
     }
 
