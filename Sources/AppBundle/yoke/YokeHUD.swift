@@ -313,13 +313,15 @@ func resizeFloatingWindow(by amount: CGFloat) {
               let width = bounds["Width"], let height = bounds["Height"]
         else { continue }
 
-        // Expand/collapse from center: grow each edge by amount/2
-        let dx = amount / 2
-        let dy = amount / 2
-        let newW = max(200, width + amount)
-        let newH = max(200, height + amount)
-        let newX = x - dx
-        let newY = y - dy
+        // Proportional resize: distribute amount by aspect ratio, clamp to screen
+        let screen = focus.workspace.workspaceMonitor.visibleRect
+        let total = width + height
+        let hAmount = amount * (width / total)
+        let vAmount = amount * (height / total)
+        let newW = min(screen.width, max(200, width + hAmount))
+        let newH = min(screen.height, max(200, height + vAmount))
+        let newX = max(screen.topLeftX, x - (newW - width) / 2)
+        let newY = max(screen.topLeftY, y - (newH - height) / 2)
 
         macWin.setAxFrame(CGPoint(x: newX, y: newY), CGSize(width: newW, height: newH))
         return

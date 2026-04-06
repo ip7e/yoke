@@ -58,15 +58,33 @@ Or download the latest `.app` from [Releases](https://github.com/ip7e/yoke/relea
 |-----|--------|
 | `Cmd+Esc` | Toggle Yoke |
 | `W/A/S/D` | Focus up/left/down/right |
-| `Alt+WASD` | Move window |
+| `Alt+WASD` | Move window (tiled) / Snap to edge (floating) |
 | `Shift+WASD` | Merge windows |
 | `Q/E` | Resize (Shift for fine) |
 | `F` | Toggle float/tile |
+| `C` | Center floating window (cycles full / compact) |
 | `R` | Cycle layout (Shift for orientation) |
 | `1-9` | Switch workspace |
 | `Alt+1-9` | Send window to workspace |
+| `U` | Open update page (when update available) |
 | `H` | Help pages |
 | `Esc / Enter` | Exit Yoke |
+
+### Floating Window Snap (Alt+WASD)
+
+When a window is floating, Alt+WASD snaps it to screen regions instead of tiling-move:
+
+| Keys | Result |
+|------|--------|
+| `Alt+A` | Left half → press again: left third → cycles back |
+| `Alt+D` | Right half → right third → cycles back |
+| `Alt+W` | Top half (full width) |
+| `Alt+S` | Bottom half (full width) |
+| `Alt+A` then `Alt+W` | Top-left quarter |
+| `Alt+D` then `Alt+S` | Bottom-right quarter |
+| Same horizontal again | Resets vertical to full height, then cycles width |
+| Same vertical again | Resets horizontal to full width |
+| `C` | Full screen → compact centered (~70%) → cycles |
 
 ## Architecture
 

@@ -12,80 +12,81 @@ class FloatingSnap {
         case third = 0.3333
         case full = 1.0
     }
+    enum Direction { case left, right, up, down, center }
 
     private var edge: Edge = .none
     private var hFraction: HFraction = .half
     private var vertical: Vertical = .full
+    private var centered: Bool = false
+    private var centerWide: Bool = true
     private var trackedWindowId: UInt32?
 
     private init() {}
 
-    // MARK: - Public snap actions
+    // MARK: - Public API
 
-    func snapLeft() {
+    func snap(_ dir: Direction) {
         guard let (macWin, windowId) = floatingWindow() else { return }
-        resetIfWindowChanged(windowId)
+        if trackedWindowId != windowId {
+            edge = .none; hFraction = .half; vertical = .full
+            centered = false; centerWide = true
+        }
+        trackedWindowId = windowId
 
-        if edge == .left {
-            if hFraction == .half { hFraction = .third }
+        switch dir {
+        case .left:  centered = false; snapHorizontal(to: .left)
+        case .right: centered = false; snapHorizontal(to: .right)
+        case .up:    centered = false; snapVertical(to: .top)
+        case .down:  centered = false; snapVertical(to: .bottom)
+        case .center: snapCenter()
+        }
+
+        if centered {
+            applyCenterFrame(macWin)
         } else {
-            edge = .left
-            hFraction = .half
+            applyEdgeFrame(macWin)
         }
-        vertical = .full
-        trackedWindowId = windowId
-        applyFrame(macWin)
-    }
-
-    func snapRight() {
-        guard let (macWin, windowId) = floatingWindow() else { return }
-        resetIfWindowChanged(windowId)
-
-        if edge == .right {
-            if hFraction == .half { hFraction = .third }
-        } else {
-            edge = .right
-            hFraction = .half
-        }
-        vertical = .full
-        trackedWindowId = windowId
-        applyFrame(macWin)
-    }
-
-    func snapUp() {
-        guard let (macWin, windowId) = floatingWindow() else { return }
-        resetIfWindowChanged(windowId)
-
-        if edge == .none && vertical != .top {
-            edge = .none
-            hFraction = .full
-        }
-        vertical = .top
-        trackedWindowId = windowId
-        applyFrame(macWin)
-    }
-
-    func snapDown() {
-        guard let (macWin, windowId) = floatingWindow() else { return }
-        resetIfWindowChanged(windowId)
-
-        if edge == .none && vertical != .bottom {
-            edge = .none
-            hFraction = .full
-        }
-        vertical = .bottom
-        trackedWindowId = windowId
-        applyFrame(macWin)
     }
 
     func reset() {
-        edge = .none
-        hFraction = .half
-        vertical = .full
-        trackedWindowId = nil
+        edge = .none; hFraction = .half; vertical = .full
+        centered = false; centerWide = true; trackedWindowId = nil
     }
 
-    // MARK: - Private helpers
+    // MARK: - State transitions
+
+    private func snapHorizontal(to target: Edge) {
+        if edge == target {
+            if vertical != .full {
+                vertical = .full
+            } else {
+                hFraction = hFraction == .half ? .third : .half
+            }
+        } else {
+            if edge == .none { hFraction = .half }
+            edge = target
+        }
+    }
+
+    private func snapVertical(to target: Vertical) {
+        if vertical == target {
+            edge = .none; hFraction = .full
+        } else {
+            if edge == .none { hFraction = .full }
+        }
+        vertical = target
+    }
+
+    private func snapCenter() {
+        if centered {
+            centerWide.toggle()
+        } else {
+            centered = true; centerWide = true
+        }
+        edge = .none; vertical = .full; hFraction = .full
+    }
+
+    // MARK: - Frame application
 
     private func floatingWindow() -> (MacWindow, UInt32)? {
         guard let window = focus.windowOrNil, window.isFloating,
@@ -93,32 +94,33 @@ class FloatingSnap {
         return (macWin, window.windowId)
     }
 
-    private func resetIfWindowChanged(_ windowId: UInt32) {
-        if trackedWindowId != windowId {
-            edge = .none
-            hFraction = .half
-            vertical = .full
-        }
+    private func applyEdgeFrame(_ macWin: MacWindow) {
+        let s = focus.workspace.workspaceMonitor.visibleRect
+
+        let w = s.width * hFraction.rawValue
+        let h: CGFloat = vertical == .full ? s.height : s.height / 2
+        let x = edge == .right ? s.topLeftX + s.width - w : s.topLeftX
+        let y = vertical == .bottom ? s.topLeftY + s.height / 2 : s.topLeftY
+
+        macWin.setAxFrame(CGPoint(x: x, y: y), CGSize(width: w, height: h))
     }
 
-    private func applyFrame(_ macWin: MacWindow) {
-        let screen = focus.workspace.workspaceMonitor.visibleRect
+    private func applyCenterFrame(_ macWin: MacWindow) {
+        let s = focus.workspace.workspaceMonitor.visibleRect
 
-        let snapW = screen.width * hFraction.rawValue
-        let snapH: CGFloat = vertical == .full ? screen.height : screen.height / 2
-
-        let snapX: CGFloat
-        switch edge {
-        case .left, .none: snapX = screen.topLeftX
-        case .right: snapX = screen.topLeftX + screen.width - snapW
+        if centerWide {
+            // Full width, full height
+            macWin.setAxFrame(
+                CGPoint(x: s.topLeftX, y: s.topLeftY),
+                CGSize(width: s.width, height: s.height)
+            )
+        } else {
+            // Compact: 70% width, 80% height, centered
+            let w = s.width * 0.7
+            let h = s.height * 0.8
+            let x = s.topLeftX + (s.width - w) / 2
+            let y = s.topLeftY + (s.height - h) / 2
+            macWin.setAxFrame(CGPoint(x: x, y: y), CGSize(width: w, height: h))
         }
-
-        let snapY: CGFloat
-        switch vertical {
-        case .top, .full: snapY = screen.topLeftY
-        case .bottom: snapY = screen.topLeftY + screen.height / 2
-        }
-
-        macWin.setAxFrame(CGPoint(x: snapX, y: snapY), CGSize(width: snapW, height: snapH))
     }
 }

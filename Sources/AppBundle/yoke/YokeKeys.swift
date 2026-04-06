@@ -20,37 +20,20 @@ class YokeKeys {
         bind(.d, cmd: "focus right", label: "D")
 
         // Move (tiled) / Snap (floating) — Alt+WASD
-        bindCustom(.w, .option, label: "⌥W") {
-            if let window = focus.windowOrNil, window.isFloating {
-                FloatingSnap.shared.snapUp()
-            } else {
-                yokeRunCommand("move up")
+        for (key, label, dir, cmd) in [
+            (Key.w, "⌥W", FloatingSnap.Direction.up,    "move up"),
+            (Key.a, "⌥A", FloatingSnap.Direction.left,  "move left"),
+            (Key.s, "⌥S", FloatingSnap.Direction.down,  "move down"),
+            (Key.d, "⌥D", FloatingSnap.Direction.right, "move right"),
+        ] as [(Key, String, FloatingSnap.Direction, String)] {
+            bindCustom(key, .option, label: label) {
+                if let window = focus.windowOrNil, window.isFloating {
+                    FloatingSnap.shared.snap(dir)
+                } else {
+                    yokeRunCommand(cmd)
+                }
+                yokeRefreshUI()
             }
-            yokeRefreshUI()
-        }
-        bindCustom(.a, .option, label: "⌥A") {
-            if let window = focus.windowOrNil, window.isFloating {
-                FloatingSnap.shared.snapLeft()
-            } else {
-                yokeRunCommand("move left")
-            }
-            yokeRefreshUI()
-        }
-        bindCustom(.s, .option, label: "⌥S") {
-            if let window = focus.windowOrNil, window.isFloating {
-                FloatingSnap.shared.snapDown()
-            } else {
-                yokeRunCommand("move down")
-            }
-            yokeRefreshUI()
-        }
-        bindCustom(.d, .option, label: "⌥D") {
-            if let window = focus.windowOrNil, window.isFloating {
-                FloatingSnap.shared.snapRight()
-            } else {
-                yokeRunCommand("move right")
-            }
-            yokeRefreshUI()
         }
 
         // Merge — Shift+WASD
@@ -60,10 +43,10 @@ class YokeKeys {
         bind(.d, .shift, cmd: "join-with right", label: "⇧D")
 
         // Resize — Q/E, Shift+Q/E for fine
-        bindResize(.q, amount: -150, label: "Q")
-        bindResize(.e, amount: 150, label: "E")
-        bindResize(.q, .shift, amount: -50, label: "⇧Q")
-        bindResize(.e, .shift, amount: 50, label: "⇧E")
+        bindResize(.q, amount: -300, label: "Q")
+        bindResize(.e, amount: 300, label: "E")
+        bindResize(.q, .shift, amount: -100, label: "⇧Q")
+        bindResize(.e, .shift, amount: 100, label: "⇧E")
 
         // Float toggle — F
         bindCustom(.f, label: "F") {
@@ -73,6 +56,14 @@ class YokeKeys {
             }
             yokeRefreshUI()
             OnboardingState.shared.recordFloatPress()
+        }
+
+        // Center — C (floating only, cycles full → compact)
+        bindCustom(.c, label: "C") {
+            if let window = focus.windowOrNil, window.isFloating {
+                FloatingSnap.shared.snap(.center)
+            }
+            yokeRefreshUI()
         }
 
         // Layout — R (tiles ↔ accordion)
