@@ -20,7 +20,7 @@ struct JoinWithCommand: Command {
             parent: parent,
             adaptiveWeight: prevBinding.adaptiveWeight,
             parent.orientation.opposite,
-            .tiles,
+            .accordion,
             index: prevBinding.index,
         )
         currentWindow.unbindFromParent()
