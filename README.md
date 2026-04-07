@@ -1,5 +1,7 @@
 # Yoke
 
+![Xnip2026-04-07_11-14-53](https://github.com/user-attachments/assets/fb120f8d-f0eb-46cf-9bd7-654e9a58262a)
+
 A gamepad-style HUD for tiling windows on macOS. Press `Cmd+Esc` to summon a floating controller overlay — navigate, resize, and organize windows with simple shortcuts.
 
 Built as a fork of [AeroSpace](https://github.com/nikitabobko/AeroSpace) by Nikita Bobko. Design inspired by [Teenage Engineering](https://teenage.engineering/).
