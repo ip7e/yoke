@@ -343,18 +343,18 @@ class OnboardingState: ObservableObject {
         }
     }
 
-    /// Step 8: ALT/SHIFT + WASD
+    /// Step 8: ⌥/⇧ + WASD
     func startModifiersStep() {
         showDots = false
         advanceTo(step: 8, enabling: [.workspaces, .sendTo], message: "", hint: "")
-        typewrite("ALT + WASD moves windows.\nSHIFT + WASD merges.\nSPACE to continue.")
+        typewrite("⌥ + WASD moves windows.\n⇧ + WASD merges.\nSPACE to continue.")
     }
 
     /// Step 9: workspaces
     func startWorkspacesStep() {
         showDots = false
         advanceTo(step: 9, enabling: [.workspaces, .sendTo], message: "", hint: "")
-        typewrite("1-9 switches workspace.\nALT+1-9 sends window.\nSPACE to continue.")
+        typewrite("1-9 switches workspace.\n⌥+1-9 sends window.\nSPACE to continue.")
     }
 
     /// Step 10: help — reveal everything. First H press completes onboarding and opens help.

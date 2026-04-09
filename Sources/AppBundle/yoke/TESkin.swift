@@ -114,6 +114,7 @@ private struct TEView: View {
         case "T": return "TILES"
         case "Y": return "ACCORD"
         case "F": return "FLOAT"
+        case "C": return "CENTER"
         case "1", "2", "3", "4", "5", "6", "7", "8", "9":
             return "WS \(keys.pressedKey!)"
         case "⌥1", "⌥2", "⌥3", "⌥4", "⌥5", "⌥6", "⌥7", "⌥8", "⌥9",
@@ -712,32 +713,38 @@ private struct TEView: View {
                             VStack(spacing: 3) {
                                 helpLine("WASD", "FOCUS")
                                 helpLine("⌥ WASD", "MOVE")
-                                helpLine("⇧ WASD", "MERGE")
-                                helpLine("H / ?", "NEXT PAGE")
+                                helpLine("E/Q", "RESIZE")
+                                helpLine("⇧ E/Q", "FINE")
                             }
                         } else if keys.helpPage == 2 {
                             // Workspace
-                            VStack(spacing: 2) {
-                                helpLine("1-9", "WORKSPACE")
+                            VStack(spacing: 3) {
+                                helpLine("1-9", "SWITCH")
                                 helpLine("⌥ 1-9", "SEND TO")
-                                Text("WORKSPACE")
-                                    .font(.system(size: 8, weight: .medium, design: .monospaced))
-                                    .foregroundColor(.white.opacity(0.50))
-                                    .frame(maxWidth: .infinity, alignment: .leading)
-                                    .padding(.leading, 60)
                             }
                         } else if keys.helpPage == 3 {
-                            // Resize
-                            VStack(spacing: 3) {
-                                helpLine("E/Q", "RESIZE")
-                                helpLine("⇧ E/Q", "FINE RESIZE")
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text("LAYOUT")
+                                    .font(.system(size: 6, weight: .bold, design: .monospaced))
+                                    .foregroundColor(.white.opacity(0.25))
+                                    .padding(.leading, 39)
+                                helpLineNarrow("F", "FLOAT / TILE")
+                                Text("WHEN FLOATING")
+                                    .font(.system(size: 6, weight: .bold, design: .monospaced))
+                                    .foregroundColor(.white.opacity(0.25))
+                                    .padding(.leading, 39)
+                                    .padding(.top, 1)
+                                helpLineNarrow("C", "CENTER")
                             }
                         } else if keys.helpPage == 4 {
-                            // Layout
-                            VStack(spacing: 3) {
-                                helpLineNarrow("F", "FLOAT ON/OFF")
-                                helpLineNarrow("R", "TILE / STACK")
-                                helpLineNarrow("⇧ R", "ORIENTATION")
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text("WHEN TILED")
+                                    .font(.system(size: 6, weight: .bold, design: .monospaced))
+                                    .foregroundColor(.white.opacity(0.25))
+                                    .padding(.leading, 40)
+                                helpLine("R", "TILE / STACK")
+                                helpLine("⇧ R", "ORIENTATION")
+                                helpLine("⇧ WASD", "MERGE")
                             }
                         } else if keys.helpPage == 5 {
                             // Yoke mode

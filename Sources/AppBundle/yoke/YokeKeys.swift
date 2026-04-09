@@ -43,10 +43,10 @@ class YokeKeys {
         bind(.d, .shift, cmd: "join-with right", label: "⇧D")
 
         // Resize — Q/E, Shift+Q/E for fine
-        bindResize(.q, amount: -300, label: "Q")
-        bindResize(.e, amount: 300, label: "E")
-        bindResize(.q, .shift, amount: -100, label: "⇧Q")
-        bindResize(.e, .shift, amount: 100, label: "⇧E")
+        bindResize(.q, amount: -150, label: "Q")
+        bindResize(.e, amount: 150, label: "E")
+        bindResize(.q, .shift, amount: -60, label: "⇧Q")
+        bindResize(.e, .shift, amount: 60, label: "⇧E")
 
         // Float toggle — F
         bindCustom(.f, label: "F") {
@@ -97,12 +97,17 @@ class YokeKeys {
             }
         }
 
-        // Help — H
+        // Help — H (next page), Shift+H (prev page)
         bindCustom(.h, label: "H", dismissHelp: false) {
             OnboardingState.shared.helpPressedDuringOnboarding()
             let next = KeyState.shared.helpPage + 1
             KeyState.shared.helpPage = next > 6 ? 0 : next
-            KeyState.shared.creditsStartTick = -1 // reset credits scroll
+            KeyState.shared.creditsStartTick = -1
+        }
+        bindCustom(.h, .shift, label: "⇧H", dismissHelp: false) {
+            let prev = KeyState.shared.helpPage - 1
+            KeyState.shared.helpPage = prev < 0 ? 7 : prev
+            KeyState.shared.creditsStartTick = -1
         }
 
         // Space — onboarding advance (no-op when onboarded)

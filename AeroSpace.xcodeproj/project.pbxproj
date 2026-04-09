@@ -18,8 +18,8 @@
 		18C104E927E079E60C91AE3E /* AeroSpaceApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AeroSpaceApp.swift; sourceTree = "<group>"; };
 		84C35D8E25B61D4D1ADB1851 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		8FE45A887100EB70912B07F0 /* default-config.toml */ = {isa = PBXFileReference; path = "default-config.toml"; sourceTree = "<group>"; };
-		B3ADC32B1A50947ACCEB83FB /* aerospace */ = {isa = PBXFileReference; lastKnownFileType = folder; name = aerospace; path = .; sourceTree = SOURCE_ROOT; };
 		CF85755BFF66B59A84F98262 /* AeroSpace.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = AeroSpace.entitlements; sourceTree = "<group>"; };
+		F715285BBE80EB4C4605106E /* yoke */ = {isa = PBXFileReference; lastKnownFileType = folder; name = yoke; path = .; sourceTree = SOURCE_ROOT; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -66,7 +66,7 @@
 		3A1FF786C84025133F96138D /* Packages */ = {
 			isa = PBXGroup;
 			children = (
-				B3ADC32B1A50947ACCEB83FB /* aerospace */,
+				F715285BBE80EB4C4605106E /* yoke */,
 			);
 			name = Packages;
 			sourceTree = "<group>";
@@ -242,7 +242,7 @@
 					"@executable_path/../Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 13.0;
-				MARKETING_VERSION = 0.1.1;
+				MARKETING_VERSION = 0.2.0;
 				PRODUCT_BUNDLE_IDENTIFIER = ip7e.yoke.debug;
 				PRODUCT_NAME = "Yoke-Debug";
 				SDKROOT = macosx;
@@ -320,7 +320,7 @@
 					"@executable_path/../Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 13.0;
-				MARKETING_VERSION = 0.1.1;
+				MARKETING_VERSION = 0.2.0;
 				PRODUCT_BUNDLE_IDENTIFIER = ip7e.yoke;
 				PRODUCT_NAME = Yoke;
 				SDKROOT = macosx;
